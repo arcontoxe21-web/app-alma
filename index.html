@@ -17,12 +17,12 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Alma Elite">
-    <link rel="apple-touch-icon" href="/icons/icon-192.png">
-    <link rel="stylesheet" href="/style.css">
+    <link rel="apple-touch-icon" href="icons/icon-192.png">
+    <link rel="stylesheet" href="style.css">
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-                navigator.serviceWorker.register('/sw.js')
+                navigator.serviceWorker.register('sw.js')
                     .then(reg => console.log('SW registered!', reg.scope))
                     .catch(err => console.log('SW failed:', err));
             });
@@ -81,7 +81,7 @@
         <!-- Register Screen -->
         <section id="screen-register" class="screen" style="z-index: 5000; background: black; padding: 0;">
             <div class="auth-container">
-                <img src="/logo-alma.png" alt="Alma Logo" class="auth-logo">
+                <img src="logo-alma.png" alt="Alma Logo" class="auth-logo">
                 <div class="auth-header">
                     <h2>Únete a la Manada</h2>
                     <p>Crea tu perfil de guardián y empieza tu legado.</p>

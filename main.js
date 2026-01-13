@@ -53,6 +53,15 @@ const Auth = {
     },
 
     updateUI() {
+        // EXCEPCIÓN: Si estamos en la Landing Page del navegador, no forzar login aún
+        const isLandingActive = document.getElementById('screen-landing')?.classList.contains('active');
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+        if (isLandingActive && !isStandalone && !this.user) {
+            console.log("🛑 Auth: Landing PWA activa en navegador. Esperando instalación o login manual.");
+            return;
+        }
+
         if (this.user) {
             // Update Header Name
             const nameEl = document.querySelector('#screen-home h1');
@@ -66,9 +75,10 @@ const Auth = {
             // Show App, Hide Login
             document.getElementById('screen-login')?.classList.remove('active');
             document.getElementById('screen-register')?.classList.remove('active');
+            document.getElementById('screen-landing')?.classList.remove('active');
 
             // If on login screen, go home
-            if (!document.querySelector('.screen.active') || document.querySelector('.screen.active').id.includes('login') || document.querySelector('.screen.active').id.includes('register')) {
+            if (!document.querySelector('.screen.active') || document.querySelector('.screen.active').id.includes('login') || document.querySelector('.screen.active').id.includes('register') || document.querySelector('.screen.active').id.includes('landing')) {
                 document.getElementById('screen-home').classList.add('active');
                 document.querySelector('.bottom-nav').classList.remove('hidden');
             }
@@ -1816,3 +1826,83 @@ window.renderProfile = () => {
         </div>
     `).join('');
 };
+
+/* --- PWA INSTALL LOGIC --- */
+const InstallApp = {
+    deferredPrompt: null,
+    isIos: /iPhone|iPad|iPod/.test(navigator.userAgent),
+
+    init() {
+        console.log('📱 PWA Init detectado');
+
+        // Listen for install prompt (Android/Desktop)
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            this.deferredPrompt = e;
+            console.log('✅ Install prompt captured');
+        });
+
+        // Check if already installed (Standalone mode)
+        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+
+        if (isStandalone) {
+            console.log('🚀 App is in standalone mode - Skipping Landing');
+            this.skipInstall();
+        } else {
+            // Show iOS specific hints if needed
+            if (this.isIos) {
+                const helper = document.getElementById('ios-helper');
+                if (helper) helper.style.display = 'block';
+            }
+        }
+    },
+
+    handleInstall() {
+        console.log('👇 Install button clicked');
+        if (this.isIos) {
+            // iOS: Show Instructions Modal
+            const modal = document.getElementById('ios-install-modal');
+            if (modal) {
+                modal.classList.remove('hidden');
+                modal.style.display = 'flex';
+            }
+        } else if (this.deferredPrompt) {
+            // Android/Desktop: Trigger Prompt
+            this.deferredPrompt.prompt();
+            this.deferredPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('User accepted install');
+                }
+                this.deferredPrompt = null;
+            });
+        } else {
+            // Fallback
+            alert('Para instalar: Busca "Añadir a pantalla de inicio" o "Instalar aplicación" en el menú de tu navegador.');
+        }
+    },
+
+    closeIosModal() {
+        const modal = document.getElementById('ios-install-modal');
+        if (modal) modal.classList.add('hidden');
+    },
+
+    skipInstall() {
+        // Hide Landing, Show Auth or Home
+        const landing = document.getElementById('screen-landing');
+        if (landing) {
+            landing.classList.remove('active');
+            landing.style.display = 'none';
+        }
+
+        // Decide next screen based on Auth
+        if (Auth.user) {
+            document.getElementById('screen-home').classList.add('active');
+            document.querySelector('.bottom-nav').classList.remove('hidden');
+        } else {
+            document.getElementById('screen-register').classList.add('active');
+        }
+    }
+};
+
+// Initialize PWA Logic immediately
+InstallApp.init();

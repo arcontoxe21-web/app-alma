@@ -1,19 +1,20 @@
 {
     "name": "Alma Elite - Refugio Noir",
     "short_name": "Alma Elite",
-    "start_url": "/?source=pwa",
+    "start_url": "./?source=pwa",
     "display": "standalone",
     "background_color": "#000000",
     "theme_color": "#000000",
     "orientation": "portrait-primary",
+    "scope": "./",
     "icons": [
         {
-            "src": "/icons/icon-192.png",
+            "src": "icons/icon-192.png",
             "type": "image/png",
             "sizes": "192x192"
         },
         {
-            "src": "/icons/icon-512.png",
+            "src": "icons/icon-512.png",
             "type": "image/png",
             "sizes": "512x512"
         }

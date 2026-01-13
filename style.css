@@ -1187,7 +1187,7 @@ textarea:focus {
   left: 0;
   width: 100%;
   height: 100%;
-  background: url('/app-alma/assets/hero-landing.png');
+  background: url('./assets/hero-landing.png');
   background-size: cover;
   background-position: center;
   filter: brightness(0.3) saturate(0.7);

@@ -1,3 +1,5 @@
+import { getVetResponse, initVetSession } from './services/gemini.js';
+
 /* --- AUTHENTICATION MODULE --- */
 const Auth = {
     user: JSON.parse(localStorage.getItem('alma_user')) || null,
@@ -1248,7 +1250,7 @@ function init() {
     if (locateBtn) locateBtn.onclick = handleLocateMe;
 
     /* --- VET AI LOGIC --- */
-    window.sendVetMessage = (predefinedText) => {
+    window.sendVetMessage = async (predefinedText) => {
         const input = document.getElementById('vet-input');
         const text = predefinedText || input.value.trim();
         if (!text) return;
@@ -1264,203 +1266,41 @@ function init() {
         if (!predefinedText) input.value = '';
         chatContainer.scrollTop = chatContainer.scrollHeight;
 
-        // Simular "IA escribiendo..."
+        // Simular "IA escribiendo..." (Animación de carga real)
         const typing = document.createElement('div');
         typing.className = 'chat-bubble other';
-        typing.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Analizando emergencia...';
+        typing.id = 'ai-typing-indicator';
+        typing.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Dra. Alma está escribiendo...';
         chatContainer.appendChild(typing);
         chatContainer.scrollTop = chatContainer.scrollHeight;
 
-        setTimeout(() => {
-            typing.remove();
+        try {
+            // Llamada REAL a la IA
+            const aiResponseHtml = await getVetResponse(text);
+
+            // Eliminar indicador de carga
+            const typingIndicator = document.getElementById('ai-typing-indicator');
+            if (typingIndicator) typingIndicator.remove();
+
+            // Renderizar respuesta
             const reply = document.createElement('div');
             reply.className = 'chat-bubble other';
-            reply.innerHTML = getVetAIResponse(text.toLowerCase());
+            reply.innerHTML = aiResponseHtml;
             chatContainer.appendChild(reply);
             chatContainer.scrollTop = chatContainer.scrollHeight;
-        }, 1500);
-    };
 
-    const VET_PROTOCOLS = {
-        respiracion: {
-            name: "Emergencia Respiratoria",
-            keywords: ['respira', 'rcp', 'parada', 'asfixia', 'ahoga'],
-            severity: "CRÍTICO",
-            advice: "Estamos ante una posible parada cardiorrespiratoria o asfixia obstructiva.",
-            steps: [
-                "**Despeja la vía**: Abre su boca con cuidado y retira cualquier objeto o exceso de saliva/vómito.",
-                "**Posición**: Túmbale sobre su lado derecho, estirando el cuello para alinear la tráquea.",
-                "**Masaje Cardíaco**: Presiona el tórax justo tras el codo (100-120 compresiones por minuto).",
-                "**Ventilación**: Si no respira, cierra su boca y sopla suavemente por su nariz cada 15 compresiones."
-            ],
-            urgent_alert: "Debes estar de camino al hospital mientras realizas estas maniobras."
-        },
-        toxicidad: {
-            name: "Intoxicación Aguda",
-            keywords: ['tóxico', 'veneno', 'chocolate', 'comió', 'ingerido', 'pastilla', 'lejía', 'uvas', 'cebolla'],
-            severity: "ALTA",
-            advice: "La absorción de tóxicos puede comprometer órganos vitales en minutos.",
-            steps: [
-                "**Identificación**: Localiza el envoltorio o sustancia. Es vital para el antídoto.",
-                "**No inducir vómito**: Si ha ingerido químicos corrosivos o si está inconsciente, el vómito empeorará el daño.",
-                "**Carbón Activo**: Si lo tienes a mano y ha pasado menos de 30 min, puede ayudar a frenar la absorción.",
-                "**Agua**: No le fuerces a beber, podrías causar una neumonía por aspiración."
-            ],
-            urgent_alert: "Acude a urgencias inmediatamente. El tiempo es el factor decisivo."
-        },
-        trauma: {
-            name: "Trauma / Hematoma",
-            keywords: ['atropello', 'caída', 'golpe', 'cojea', 'hueso', 'sangre', 'herida', 'fractura'],
-            severity: "MODERADA - ALTA",
-            advice: "Tras un impacto fuerte, puede haber hemorragias internas visibles o no.",
-            steps: [
-                "**Inmovilización**: Si sospechas lesión de columna, muévelo solo sobre una base rígida (tabla o cartón fuerte).",
-                "**Control de Hemorragia**: Presiona firmemente el punto de sangrado con un paño limpio. NO levantes para mirar.",
-                "**Evitar Shock**: Mantén al animal tapado para que no pierda temperatura corporal.",
-                "**Bozal preventivo**: El dolor extremo puede provocar mordeduras incluso en los animales del mundo."
-            ],
-            urgent_alert: "Aunque parezca estar bien tras un golpe, las lesiones internas pueden aparecer horas después."
-        },
-        convulsion: {
-            name: "Crisis Convulsiva",
-            keywords: ['convulsión', 'tiembla', 'ataque', 'espuma', 'epilepsia'],
-            severity: "ALTA",
-            advice: "Una convulsión es una tormenta eléctrica cerebral. Lo más importante es protegerle de golpes.",
-            steps: [
-                "**Zona segura**: Aparta muebles u objetos con los que pueda golpearse. No intentes sujetarle.",
-                "**Boca**: NUNCA metas las manos en su boca ni intentes sacarle la lengua; no se la va a tragar.",
-                "**Luz y Sonido**: Apaga luces potentes y mantén silencio absoluto para bajar el estímulo cerebral.",
-                "**Cronometra**: Si el ataque dura más de 5 minutos, es un estado de estatus epiléptico crítico."
-            ],
-            urgent_alert: "Si es la primera vez que ocurre o si se repiten, es obligatoria la revisión neurológica urgente."
-        },
-        torsion: {
-            name: "Torsión Gástrica",
-            keywords: ['hinchada', 'barriga', 'arcadas', 'no puede vomitar', 'estómago', 'inflado'],
-            severity: "MÁXIMA PRIORIDAD",
-            advice: "Sintomatología compatible con Torsión Gástrica. Es mortal en pocas horas sin cirugía.",
-            steps: [
-                "**Identifica**: Abdomen tenso como un tambor, intentos de vómito sin éxito e inquietud extrema.",
-                "**Nada de comida/agua**: No permitas que ingiera nada más.",
-                "**Traslado Inmediato**: No hay remedio casero. Necesita descompresión quirúrgica urgente."
-            ],
-            urgent_alert: "Cada segundo cuenta. Llama a la clínica para que tengan el quirófano preparado."
+        } catch (error) {
+            console.error("Error en UI Vet:", error);
+            const typingIndicator = document.getElementById('ai-typing-indicator');
+            if (typingIndicator) typingIndicator.remove();
+
+            const errReply = document.createElement('div');
+            errReply.className = 'chat-bubble other error';
+            errReply.innerText = "Error de conexión. Inténtalo de nuevo.";
+            chatContainer.appendChild(errReply);
         }
     };
 
-    window.vetContext = {
-        activeProtocol: null,
-        currentStepIndex: 0,
-        completedSteps: [],
-        lastQuery: null
-    };
-
-    function getVetAIResponse(q) {
-        const intro = "Soy la **Dra. Alma**, especialista en medicina de urgencias de la Manada.";
-
-        // --- 1. DETECCIÓN DE INTENCIÓN (MEMORIA) ---
-        const confirmationKeywords = ['hecho', 'listo', 'ya está', 'ya esta', 'ok', 'vale', 'entendido', 'si', 'sí', 'bien', 'ya', 'acabado', 'terminado', 'continuar', 'siguiente', 'avanzar'];
-        const curiosityKeywords = ['más', 'sigue', 'después', 'luego', 'que mas', 'qué más', 'dime más', 'y ahora', 'proximo', 'próximo'];
-
-        const isConfirmation = confirmationKeywords.some(k => q.toLowerCase() === k || q.toLowerCase().includes(k)); // Más permisivo con includes
-        const isCuriosity = curiosityKeywords.some(k => q.toLowerCase().includes(k));
-
-        // Si hay un protocolo activo y el usuario confirma o pide más
-        if ((isConfirmation || isCuriosity) && window.vetContext.activeProtocol) {
-            const ctx = window.vetContext.activeProtocol;
-
-            // Si el usuario confirma, marcamos el paso actual como completado y avanzamos
-            if (isConfirmation) {
-                if (!window.vetContext.completedSteps.includes(window.vetContext.currentStepIndex)) {
-                    window.vetContext.completedSteps.push(window.vetContext.currentStepIndex);
-                }
-                window.vetContext.currentStepIndex++;
-            } else if (isCuriosity) {
-                // Si solo pide más, avanzamos al siguiente sin marcar el anterior (o simplemente mostramos el siguiente)
-                window.vetContext.currentStepIndex++;
-            }
-
-            // Verificar si quedan pasos
-            if (window.vetContext.currentStepIndex < ctx.steps.length) {
-                const nextStep = ctx.steps[window.vetContext.currentStepIndex];
-                return `
-                    <p><strong>Dra. Alma:</strong> ${isConfirmation ? '¡Muy bien! Seguimos.' : 'De acuerdo, continuemos.'}</p>
-                    <p>El siguiente paso crítico para <strong>${ctx.name}</strong> es:</p>
-                    <div class="vet-steps">
-                        <div class="vet-step"><span>${window.vetContext.currentStepIndex + 1}</span> ${nextStep}</div>
-                    </div>
-                    <div class="vet-alert">
-                        <i class="fa-solid fa-clock"></i> No te detengas. Dime <strong>"hecho"</strong> cuando lo tengas.
-                    </div>
-                `;
-            } else {
-                return `
-                    <p><strong>Dra. Alma:</strong> Has completado los pasos iniciales de emergencia para <strong>${ctx.name}</strong>.</p>
-                    <div class="vet-steps">
-                        <div class="vet-step"><span>✅</span> Mantén al animal estable y abrigado.</div>
-                        <div class="vet-step"><span>🚗</span> Asegúrate de estar llegando al centro veterinario.</div>
-                    </div>
-                    <div class="vet-alert">
-                        <i class="fa-solid fa-phone"></i> ¿Has podido avisar a la clínica para que te esperen?
-                    </div>
-                    <p style="font-size: 13px; opacity: 0.8;">Estoy aquí por si surge cualquier cambio en su estado.</p>
-                `;
-            }
-        }
-
-        // --- 2. BÚSQUEDA DE NUEVO PROTOCOLO ---
-        let foundProtocol = null;
-        for (const key in VET_PROTOCOLS) {
-            if (VET_PROTOCOLS[key].keywords.some(k => q.includes(k))) {
-                foundProtocol = VET_PROTOCOLS[key];
-                break;
-            }
-        }
-
-        if (foundProtocol) {
-            // Si ya había un protocolo y detectamos uno nuevo, reiniciamos el contexto
-            window.vetContext.activeProtocol = foundProtocol;
-            window.vetContext.currentStepIndex = 0;
-            window.vetContext.completedSteps = [];
-
-            return `
-                <div class="vet-response-header">
-                    <span class="badg-severity ${foundProtocol.severity.toLowerCase()}">${foundProtocol.severity}</span>
-                    <p><strong>${intro}</strong></p>
-                </div>
-                <p class="vet-advice">${foundProtocol.advice}</p>
-                <p>Vamos a actuar paso a paso. Empecemos por esto:</p>
-                <div class="vet-steps">
-                    <div class="vet-step"><span>1</span> ${foundProtocol.steps[0]}</div>
-                </div>
-                <div class="vet-alert">
-                    <i class="fa-solid fa-triangle-exclamation"></i> ${foundProtocol.urgent_alert}
-                </div>
-                <p style="font-size: 12px; margin-top: 10px; opacity: 0.8;"><em>Dime <strong>"hecho"</strong> o <strong>"¿qué más?"</strong> cuando estés listo para el siguiente paso.</em></p>
-            `;
-        }
-
-        // Si no hay protocolo y no detectamos nada nuevo
-        if (window.vetContext.activeProtocol) {
-            return `
-                <p><strong>Dra. Alma:</strong> ¿Sigues ahí?</p>
-                <p>Seguimos con el protocolo de <strong>${window.vetContext.activeProtocol.name}</strong>.</p>
-                <p>El paso actual es: <em>"${window.vetContext.activeProtocol.steps[window.vetContext.currentStepIndex]}"</em></p>
-                <div class="vet-alert" style="background: rgba(255,255,255,0.05); border: 1px dashed var(--text-muted);">
-                    <i class="fa-solid fa-circle-question"></i> Escribe <strong>"hecho"</strong>, <strong>"siguiente"</strong> o <strong>"ya"</strong> para avanzar.
-                </div>
-            `;
-        }
-
-        return `
-            <p><strong>${intro}</strong></p>
-            <p>Te escucho. Para poder darte un protocolo profesional, ¿podrías detallarme los síntomas principales o qué ha ocurrido hace poco?</p>
-            <p style="font-size: 13px; color: var(--text-muted);">Por ejemplo: "Se ha comido chocolate", "No respira bien" o "Se ha dado un golpe".</p>
-            <p><strong>Mantén la calma, estoy aquí para guiarte.</strong></p>
-        `;
-    }
-
-    console.log("Sistema Alma Elite inicializado.");
 
     const hf = document.getElementById('home-featured-list');
     if (hf) {

@@ -74,7 +74,15 @@
             }
 
             // Callbacks especiales por pantalla
+            if (screenId === 'home') {
+                console.log("📍 Entrando a Home...");
+                if (typeof window.renderHomeNews === 'function') {
+                    window.renderHomeNews();
+                }
+            }
+
             if (screenId === 'catalog') {
+                console.log("📍 Entrando a Catálogo...");
                 // Renderizar catálogo si existe la función
                 if (typeof window.renderCatalog === 'function') {
                     window.renderCatalog();
@@ -103,6 +111,9 @@
 
             if (screenId === 'vet-ai') {
                 console.log("📍 Entrando a Vet AI...");
+                if (typeof window.initVetSession === 'function') {
+                    window.initVetSession();
+                }
             }
 
             if (screenId === 'profile') {
@@ -113,6 +124,7 @@
             }
         }
     };
+
 
     // Exponer Router globalmente
     window.Router = Router;

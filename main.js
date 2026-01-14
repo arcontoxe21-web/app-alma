@@ -1005,178 +1005,183 @@ async function getVetAIResponse(q) {
         }, 1000);
     }
 
+
     /* --- INITIALIZATION --- */
-    function init() {
-        Router.init();
-        initRescueTabs();
-        LocationManager.init();
+    // No longer inside a wrapper function to ensure module-level visibility
+    Router.init();
+    initRescueTabs();
+    LocationManager.init();
 
-        // Listener para inicialización de mapas cuando se entra en la pantalla de rescate
-        document.querySelectorAll('.nav-link').forEach(link => {
-            link.addEventListener('click', () => {
-                if (link.getAttribute('data-screen') === 'rescue') {
-                    // Pequeño delay para dejar que la pantalla se vuelva visible y Leaflet tome bien las medidas
-                    setTimeout(() => {
-                        const activeTab = document.querySelector('.rescue-tab.active');
-                        if (activeTab) {
-                            const id = activeTab.getAttribute('data-tab');
-                            if (id === 'report') initRescueMap();
-                            else if (id === 'radar') initRadarMap();
-                        }
-                    }, 100);
-                }
-            });
-        });
 
-        // Forzar inicialización si ya estamos en la pantalla (útil para recargas)
-        if (Router.activeScreen === 'rescue') {
-            setTimeout(initRescueMap, 300);
-        }
-
-        // Botones de acción SOS
-        const submitBtn = document.getElementById('btn-submit-rescue');
-        if (submitBtn) submitBtn.onclick = handleRescueSubmit;
-
-        const locateBtn = document.getElementById('btn-locate-me');
-        if (locateBtn) locateBtn.onclick = handleLocateMe;
-
-        /* --- VET AI LOGIC --- */
-        window.sendVetMessage = async (predefinedText) => {
-            const input = document.getElementById('vet-input');
-            const text = predefinedText || input.value.trim();
-            if (!text) return;
-
-            const chatContainer = document.getElementById('vet-ai-chat');
-
-            // Añadir mensaje del usuario
-            const userBubble = document.createElement('div');
-            userBubble.className = 'chat-bubble user';
-            userBubble.innerText = text;
-            chatContainer.appendChild(userBubble);
-
-            if (!predefinedText) input.value = '';
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-
-            // Simular "IA escribiendo..." (Animación de carga real)
-            const typing = document.createElement('div');
-            typing.className = 'chat-bubble other';
-            typing.id = 'ai-typing-indicator';
-            typing.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Dra. Alma (v7.2) está escribiendo...';
-            chatContainer.appendChild(typing);
-            chatContainer.appendChild(typing);
-            chatContainer.scrollTop = chatContainer.scrollHeight;
-
-            try {
-                // Llamada REAL a la IA
-                const aiResponseHtml = await getVetResponse(text);
-
-                // Eliminar indicador de carga
-                const typingIndicator = document.getElementById('ai-typing-indicator');
-                if (typingIndicator) typingIndicator.remove();
-
-                // Renderizar respuesta
-                const reply = document.createElement('div');
-                reply.className = 'chat-bubble other';
-                reply.innerHTML = aiResponseHtml;
-                chatContainer.appendChild(reply);
-                chatContainer.scrollTop = chatContainer.scrollHeight;
-
-            } catch (error) {
-                console.error("Error en UI Vet:", error);
-                const typingIndicator = document.getElementById('ai-typing-indicator');
-                if (typingIndicator) typingIndicator.remove();
-
-                const errReply = document.createElement('div');
-                errReply.className = 'chat-bubble other error';
-                errReply.innerText = "Error de conexión. Inténtalo de nuevo.";
-                chatContainer.appendChild(errReply);
+    // Listener para inicialización de mapas cuando se entra en la pantalla de rescate
+    document.querySelectorAll('.nav-link').forEach(link => {
+        link.addEventListener('click', () => {
+            if (link.getAttribute('data-screen') === 'rescue') {
+                // Pequeño delay para dejar que la pantalla se vuelva visible y Leaflet tome bien las medidas
+                setTimeout(() => {
+                    const activeTab = document.querySelector('.rescue-tab.active');
+                    if (activeTab) {
+                        const id = activeTab.getAttribute('data-tab');
+                        if (id === 'report') initRescueMap();
+                        else if (id === 'radar') initRadarMap();
+                    }
+                }, 100);
             }
-        };
+        });
+    });
 
-
-        const hf = document.getElementById('home-featured-list');
-        if (hf) {
-            hf.innerHTML = ''; // Limpiar placeholders
-            animals.slice(0, 2).forEach(a => hf.appendChild(createAnimalCard(a)));
-        }
-
-        const cf = document.getElementById('full-catalog-list');
-        if (cf) {
-            cf.innerHTML = '';
-            animals.forEach(a => cf.appendChild(createAnimalCard(a)));
-        }
-
-        // Social Hub init (if needed on load)
-        if (window.switchSocialTab) window.switchSocialTab('heroes');
+    // Forzar inicialización si ya estamos en la pantalla (útil para recargas)
+    if (Router.activeScreen === 'rescue') {
+        setTimeout(initRescueMap, 300);
     }
 
-    document.addEventListener('DOMContentLoaded', init);
+    // Botones de acción SOS
+    const submitBtn = document.getElementById('btn-submit-rescue');
+    if (submitBtn) submitBtn.onclick = handleRescueSubmit;
 
-    // --- SOCIAL HUB LOGIC ---
+    const locateBtn = document.getElementById('btn-locate-me');
+    if (locateBtn) locateBtn.onclick = handleLocateMe;
 
-    /* --- SOCIAL HUB ENGINE --- */
+    /* --- VET AI LOGIC --- */
+    window.sendVetMessage = async (predefinedText) => {
+        const input = document.getElementById('vet-input');
+        const text = predefinedText || input.value.trim();
+        if (!text) return;
 
-    window.switchSocialTab = (tabId) => {
-        // 1. Update Tab UI (New Selector for Explicit Tabs)
-        document.querySelectorAll('.social-tab-new').forEach(t => {
-            t.style.background = '#222';
-            t.style.color = 'gray';
-            t.classList.remove('active');
-        });
+        const chatContainer = document.getElementById('vet-ai-chat');
 
-        const activeBtn = Array.from(document.querySelectorAll('.social-tab-new')).find(btn => btn.innerText.toLowerCase().includes(tabId.substring(0, 4)));
-        if (activeBtn) {
-            activeBtn.style.background = '#0a8e69'; // High contrast
-            activeBtn.style.color = 'white';
-            activeBtn.classList.add('active');
-        }
+        // Añadir mensaje del usuario
+        const userBubble = document.createElement('div');
+        userBubble.className = 'chat-bubble user';
+        userBubble.innerText = text;
+        chatContainer.appendChild(userBubble);
 
-        // 2. Render Content
-        const container = document.getElementById('social-content');
-        if (!container) return;
+        if (!predefinedText) input.value = '';
+        chatContainer.scrollTop = chatContainer.scrollHeight;
 
-        if (tabId === 'heroes') {
-            renderHeroesFeed(container);
-        } else if (tabId === 'missions') {
-            renderMissions(container);
-        } else if (tabId === 'chat') {
-            renderChat(container, 'general');
-        } else if (tabId === 'success') {
-            renderSuccessStories(container);
+        // Simular "IA escribiendo..." (Animación de carga real)
+        const typing = document.createElement('div');
+        typing.className = 'chat-bubble other';
+        typing.id = 'ai-typing-indicator';
+        typing.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Dra. Alma (v7.2) está escribiendo...';
+        chatContainer.appendChild(typing);
+        chatContainer.appendChild(typing);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+
+        try {
+            // Llamada REAL a la IA
+            const aiResponseHtml = await getVetResponse(text);
+
+            // Eliminar indicador de carga
+            const typingIndicator = document.getElementById('ai-typing-indicator');
+            if (typingIndicator) typingIndicator.remove();
+
+            // Renderizar respuesta
+            const reply = document.createElement('div');
+            reply.className = 'chat-bubble other';
+            reply.innerHTML = aiResponseHtml;
+            chatContainer.appendChild(reply);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+
+        } catch (error) {
+            console.error("Error en UI Vet:", error);
+            const typingIndicator = document.getElementById('ai-typing-indicator');
+            if (typingIndicator) typingIndicator.remove();
+
+            const errReply = document.createElement('div');
+            errReply.className = 'chat-bubble other error';
+            errReply.innerText = "Error de conexión. Inténtalo de nuevo.";
+            chatContainer.appendChild(errReply);
         }
     };
 
-    const successStories = [
-        {
-            id: 1,
-            name: 'Baltasar',
-            breed: 'Mestizo de Vida',
-            // Before: Sad, street, cold
-            beforeImg: 'https://images.unsplash.com/photo-1529429617124-95b109e86bb8?q=80&w=1000&auto=format&fit=crop',
-            // After: Happy, bed, home
-            afterImg: 'https://images.unsplash.com/photo-1601979031925-424e53b6caaa?q=80&w=1000&auto=format&fit=crop',
-            story: 'Lo encontramos ovillado bajo la lluvia, invisible para el mundo. Tenía miedo hasta de comer. Hoy, Baltasar no solo tiene una cama caliente, tiene una familia que le lee cuentos antes de dormir. Su cola no ha parado de moverse desde que cruzó ese umbral.'
-        },
-        {
-            id: 2,
-            name: 'Luna y Sol',
-            breed: 'Hermanos Inseparables',
-            // Before: Dirty, scared kitten
-            beforeImg: 'https://images.unsplash.com/photo-1513245543132-31f507417b26?q=80&w=1000&auto=format&fit=crop',
-            // After: Clean, hugging, sleeping
-            afterImg: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?q=80&w=1000&auto=format&fit=crop',
-            story: 'Sobrevivieron al invierno dándose calor mutuamente entre cartones. Prometimos no separarlos nunca. Ahora comparten el sofá más cómodo de la ciudad y han descubierto que las ventanas son en realidad televisiones de pájaros.'
-        }
-    ];
 
-    function renderSuccessStories(container) {
-        container.innerHTML = '<div style="padding: 20px;"></div>';
-        const list = container.querySelector('div');
+    const hf = document.getElementById('home-featured-list');
+    if (hf) {
+        hf.innerHTML = ''; // Limpiar placeholders
+        animals.slice(0, 2).forEach(a => hf.appendChild(createAnimalCard(a)));
+    }
 
-        successStories.forEach(s => {
-            const card = document.createElement('div');
-            card.className = 'story-card';
-            card.innerHTML = `
+    const cf = document.getElementById('full-catalog-list');
+    if (cf) {
+        cf.innerHTML = '';
+        animals.forEach(a => cf.appendChild(createAnimalCard(a)));
+    }
+
+    // Social Hub init (if needed on load)
+    if (window.switchSocialTab) window.switchSocialTab('heroes');
+}
+
+document.addEventListener('DOMContentLoaded', init);
+
+// --- SOCIAL HUB LOGIC ---
+
+/* --- SOCIAL HUB ENGINE --- */
+
+function switchSocialTab(tabId) {
+    // 1. Update Tab UI (New Selector for Explicit Tabs)
+    document.querySelectorAll('.social-tab-new').forEach(t => {
+        t.style.background = '#222';
+        t.style.color = 'gray';
+        t.classList.remove('active');
+    });
+
+    const activeBtn = Array.from(document.querySelectorAll('.social-tab-new')).find(btn => btn.innerText.toLowerCase().includes(tabId.substring(0, 4)));
+    if (activeBtn) {
+        activeBtn.style.background = '#0a8e69'; // High contrast
+        activeBtn.style.color = 'white';
+        activeBtn.classList.add('active');
+    }
+
+    // 2. Render Content
+    const container = document.getElementById('social-content');
+    if (!container) return;
+
+    if (tabId === 'heroes') {
+        renderHeroesFeed(container);
+    } else if (tabId === 'missions') {
+        renderMissions(container);
+    } else if (tabId === 'chat') {
+        renderChat(container, 'general');
+    } else if (tabId === 'success') {
+        renderSuccessStories(container);
+    }
+}
+
+window.switchSocialTab = switchSocialTab;
+
+
+const successStories = [
+    {
+        id: 1,
+        name: 'Baltasar',
+        breed: 'Mestizo de Vida',
+        // Before: Sad, street, cold
+        beforeImg: 'https://images.unsplash.com/photo-1529429617124-95b109e86bb8?q=80&w=1000&auto=format&fit=crop',
+        // After: Happy, bed, home
+        afterImg: 'https://images.unsplash.com/photo-1601979031925-424e53b6caaa?q=80&w=1000&auto=format&fit=crop',
+        story: 'Lo encontramos ovillado bajo la lluvia, invisible para el mundo. Tenía miedo hasta de comer. Hoy, Baltasar no solo tiene una cama caliente, tiene una familia que le lee cuentos antes de dormir. Su cola no ha parado de moverse desde que cruzó ese umbral.'
+    },
+    {
+        id: 2,
+        name: 'Luna y Sol',
+        breed: 'Hermanos Inseparables',
+        // Before: Dirty, scared kitten
+        beforeImg: 'https://images.unsplash.com/photo-1513245543132-31f507417b26?q=80&w=1000&auto=format&fit=crop',
+        // After: Clean, hugging, sleeping
+        afterImg: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?q=80&w=1000&auto=format&fit=crop',
+        story: 'Sobrevivieron al invierno dándose calor mutuamente entre cartones. Prometimos no separarlos nunca. Ahora comparten el sofá más cómodo de la ciudad y han descubierto que las ventanas son en realidad televisiones de pájaros.'
+    }
+];
+
+function renderSuccessStories(container) {
+    container.innerHTML = '<div style="padding: 20px;"></div>';
+    const list = container.querySelector('div');
+
+    successStories.forEach(s => {
+        const card = document.createElement('div');
+        card.className = 'story-card';
+        card.innerHTML = `
             <div class="story-header">
                 <div>
                     <h4 style="margin:0; font-size:16px;">${s.name}</h4>
@@ -1202,14 +1207,14 @@ async function getVetAIResponse(q) {
                 <p style="font-size:14px; line-height:1.6; color:#e0e0e0; font-weight:400; margin:0;">"${s.story}"</p>
             </div>
         `;
-            list.appendChild(card);
-        });
-    }
+        list.appendChild(card);
+    });
+}
 
 
 
-    function renderHeroesFeed(container) {
-        const leaderboardHTML = `
+function renderHeroesFeed(container) {
+    const leaderboardHTML = `
         <div class="leaderboard-container">
             <div class="leader-profile">
                 <div class="leader-rank" style="background:silver;">2</div>
@@ -1232,14 +1237,14 @@ async function getVetAIResponse(q) {
         </div>
     `;
 
-        const events = [
-            { user: 'María G.', action: 'Donó 15€ para Rex', time: 'Hace 2 min', icon: 'fa-heart', color: '#ff3b30', img: 'https://images.unsplash.com/photo-1546182990-dffeafbe841d?q=80&w=200&auto=format&fit=crop' },
-            { user: 'Carlos R.', action: 'Adoptó a Luna', time: 'Hace 1 hora', icon: 'fa-house', color: '#10fbba', img: 'https://images.unsplash.com/photo-1474511320723-9a56873867b5?q=80&w=200&auto=format&fit=crop' },
-            { user: 'Ana P.', action: 'Completó misión: Transporte', time: 'Hace 3 horas', icon: 'fa-car', color: '#FFD700', img: 'https://images.unsplash.com/photo-1533738363-b7f9aef128ce?q=80&w=200&auto=format&fit=crop' },
-            { user: 'Roberto', action: 'Nuevo Padrino Elite', time: 'Hace 5 horas', icon: 'fa-medal', color: '#bf5af2', img: 'https://images.unsplash.com/photo-1579313262691-e490586e344e?q=80&w=200&auto=format&fit=crop' }
-        ];
+    const events = [
+        { user: 'María G.', action: 'Donó 15€ para Rex', time: 'Hace 2 min', icon: 'fa-heart', color: '#ff3b30', img: 'https://images.unsplash.com/photo-1546182990-dffeafbe841d?q=80&w=200&auto=format&fit=crop' },
+        { user: 'Carlos R.', action: 'Adoptó a Luna', time: 'Hace 1 hora', icon: 'fa-house', color: '#10fbba', img: 'https://images.unsplash.com/photo-1474511320723-9a56873867b5?q=80&w=200&auto=format&fit=crop' },
+        { user: 'Ana P.', action: 'Completó misión: Transporte', time: 'Hace 3 horas', icon: 'fa-car', color: '#FFD700', img: 'https://images.unsplash.com/photo-1533738363-b7f9aef128ce?q=80&w=200&auto=format&fit=crop' },
+        { user: 'Roberto', action: 'Nuevo Padrino Elite', time: 'Hace 5 horas', icon: 'fa-medal', color: '#bf5af2', img: 'https://images.unsplash.com/photo-1579313262691-e490586e344e?q=80&w=200&auto=format&fit=crop' }
+    ];
 
-        container.innerHTML = leaderboardHTML + '<h4 style="margin: 0 0 15px 5px; font-size:14px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Actividad Reciente</h4>' + events.map(e => `
+    container.innerHTML = leaderboardHTML + '<h4 style="margin: 0 0 15px 5px; font-size:14px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Actividad Reciente</h4>' + events.map(e => `
         <div class="feed-card">
             <img src="${e.img}" class="hero-avatar" alt="Avatar" style="object-fit:cover;" onerror="this.src='https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=200&auto=format&fit=crop'">
             <div style="flex:1;">
@@ -1254,16 +1259,16 @@ async function getVetAIResponse(q) {
             </div>
         </div>
     `).join('') + '<div style="text-align:center; padding:20px;"><small style="color:var(--text-dim);">Estás al día</small></div>';
-    }
+}
 
-    function renderMissions(container) {
-        const missions = [
-            { type: 'TRANSPORTE', title: 'Llevar a Toby al Vet', time: 'Hoy, 17:00', loc: 'Centro -> Clínica Sur', xp: 50, icon: 'fa-car' },
-            { type: 'ACOGIDA', title: 'Casa temporal para gatitos', time: 'Urgente (3 días)', loc: 'Madrid Centro', xp: 150, icon: 'fa-house-chimney' },
-            { type: 'EVENTO', title: 'Feria de Adopción', time: 'Sábado, 10:00', loc: 'Parque del Retiro', xp: 100, icon: 'fa-tent' }
-        ];
+function renderMissions(container) {
+    const missions = [
+        { type: 'TRANSPORTE', title: 'Llevar a Toby al Vet', time: 'Hoy, 17:00', loc: 'Centro -> Clínica Sur', xp: 50, icon: 'fa-car' },
+        { type: 'ACOGIDA', title: 'Casa temporal para gatitos', time: 'Urgente (3 días)', loc: 'Madrid Centro', xp: 150, icon: 'fa-house-chimney' },
+        { type: 'EVENTO', title: 'Feria de Adopción', time: 'Sábado, 10:00', loc: 'Parque del Retiro', xp: 100, icon: 'fa-tent' }
+    ];
 
-        container.innerHTML = `
+    container.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
             <h3 style="font-size:20px; font-weight:800;">Misiones Activas</h3>
             <span class="badge-elite" style="background:rgba(255,255,255,0.1); color:white;">Tu Nivel: 3</span>
@@ -1284,58 +1289,58 @@ async function getVetAIResponse(q) {
             </div>
         `).join('')}
     `;
-    }
+}
 
-    window.socialMessages = window.socialMessages || {
-        general: [
-            { user: 'Elena R.', text: '¿Alguien sabe si el refugio necesita mantas ahora?', time: '10:30', avatar: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=200&auto=format&fit=crop' },
-            { user: 'Juan P.', text: 'Sí, Elena! Justo puse una alerta de misión', time: '10:32', avatar: 'https://images.unsplash.com/photo-1534251369789-5067c8b8dc32?q=80&w=200&auto=format&fit=crop', isMe: true },
-            { user: 'Sofía L.', text: 'Yo puedo llevar algunas mañana por la tarde.', time: '10:35', avatar: 'https://images.unsplash.com/photo-1437622368342-7a3d73a34c8f?q=80&w=200&auto=format&fit=crop' }
-        ],
-        emergency: [
-            { user: 'Admin', text: '⚠️ Aviso: Gato atrapado en Calle Mayor 4. Se necesita escalera.', time: '09:15', avatar: 'https://images.unsplash.com/photo-1504208434309-cb69f4fe52b0?q=80&w=200&auto=format&fit=crop' },
-            { user: 'Carlos Bombero', text: 'Voy de camino con equipo.', time: '09:20', avatar: 'https://images.unsplash.com/photo-1616198906103-e8473de0e359?q=80&w=200&auto=format&fit=crop' }
-        ],
-        adoptions: [
-            { user: 'Ana', text: '¡Mirad qué feliz está Rex en su nueva casa!', time: 'Ayer', avatar: 'https://images.unsplash.com/photo-1526336024174-e58f5cdd8e13?q=80&w=200&auto=format&fit=crop' }
-        ]
+window.socialMessages = window.socialMessages || {
+    general: [
+        { user: 'Elena R.', text: '¿Alguien sabe si el refugio necesita mantas ahora?', time: '10:30', avatar: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=200&auto=format&fit=crop' },
+        { user: 'Juan P.', text: 'Sí, Elena! Justo puse una alerta de misión', time: '10:32', avatar: 'https://images.unsplash.com/photo-1534251369789-5067c8b8dc32?q=80&w=200&auto=format&fit=crop', isMe: true },
+        { user: 'Sofía L.', text: 'Yo puedo llevar algunas mañana por la tarde.', time: '10:35', avatar: 'https://images.unsplash.com/photo-1437622368342-7a3d73a34c8f?q=80&w=200&auto=format&fit=crop' }
+    ],
+    emergency: [
+        { user: 'Admin', text: '⚠️ Aviso: Gato atrapado en Calle Mayor 4. Se necesita escalera.', time: '09:15', avatar: 'https://images.unsplash.com/photo-1504208434309-cb69f4fe52b0?q=80&w=200&auto=format&fit=crop' },
+        { user: 'Carlos Bombero', text: 'Voy de camino con equipo.', time: '09:20', avatar: 'https://images.unsplash.com/photo-1616198906103-e8473de0e359?q=80&w=200&auto=format&fit=crop' }
+    ],
+    adoptions: [
+        { user: 'Ana', text: '¡Mirad qué feliz está Rex en su nueva casa!', time: 'Ayer', avatar: 'https://images.unsplash.com/photo-1526336024174-e58f5cdd8e13?q=80&w=200&auto=format&fit=crop' }
+    ]
+};
+
+window.sendSocialMessage = (channel) => {
+    const input = document.getElementById('social-chat-input');
+    if (!input || !input.value.trim()) return;
+
+    const msg = {
+        user: Auth.user ? Auth.user.name : 'Invitado',
+        text: input.value.trim(),
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        avatar: Auth.user ? Auth.user.avatar : 'https://images.unsplash.com/photo-1534251369789-5067c8b8dc32?q=80&w=200',
+        isMe: true
     };
 
-    window.sendSocialMessage = (channel) => {
-        const input = document.getElementById('social-chat-input');
-        if (!input || !input.value.trim()) return;
+    window.socialMessages[channel].push(msg);
+    renderChat(document.getElementById('social-content'), channel);
+};
 
-        const msg = {
-            user: Auth.user ? Auth.user.name : 'Invitado',
-            text: input.value.trim(),
-            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            avatar: Auth.user ? Auth.user.avatar : 'https://images.unsplash.com/photo-1534251369789-5067c8b8dc32?q=80&w=200',
-            isMe: true
-        };
+function renderChat(container, channel = 'general') {
+    // 1. Storage check
+    if (!window.socialMessages[channel]) window.socialMessages[channel] = [];
+    const messages = window.socialMessages[channel];
 
-        window.socialMessages[channel].push(msg);
-        renderChat(document.getElementById('social-content'), channel);
-    };
+    // Channels UI
+    const channels = [
+        { id: 'general', name: '# General' },
+        { id: 'emergency', name: '🚨 Emergencias' },
+        { id: 'adoptions', name: '🏠 Adopciones' }
+    ];
 
-    function renderChat(container, channel = 'general') {
-        // 1. Storage check
-        if (!window.socialMessages[channel]) window.socialMessages[channel] = [];
-        const messages = window.socialMessages[channel];
-
-        // Channels UI
-        const channels = [
-            { id: 'general', name: '# General' },
-            { id: 'emergency', name: '🚨 Emergencias' },
-            { id: 'adoptions', name: '🏠 Adopciones' }
-        ];
-
-        const channelsHTML = `
+    const channelsHTML = `
         <div class="channel-selector">
             ${channels.map(c => `<div class="channel-pill ${c.id === channel ? 'active' : ''}" onclick="window.renderChat(document.getElementById('social-content'), '${c.id}')">${c.name}</div>`).join('')}
         </div>
     `;
 
-        container.innerHTML = `
+    container.innerHTML = `
         <div style="height: 100%; display: flex; flex-direction: column;">
             ${channelsHTML}
             <div id="community-chat-messages" style="flex: 1; overflow-y:auto; display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; padding-bottom:10px; max-height: 400px;">
@@ -1364,42 +1369,42 @@ async function getVetAIResponse(q) {
         </div>
     `;
 
-        // Auto-scroll
-        setTimeout(() => {
-            const chatBox = document.getElementById('community-chat-messages');
-            if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
-        }, 50);
-
-        // Quick Fix: Expose helper for onclick
-        window.renderChat = renderChat;
-
-        // Quick Fix: Expose helper for onclick
-        window.renderChat = renderChat;
-    }
-
-    // Init Social Hub logic if screen is active (or call manually)
-    // We create a global init for social to be safe
-    window.initSocialHub = () => {
-        switchSocialTab('heroes');
-    };
-
-    // Add to global initialization or just run it once to populate default
+    // Auto-scroll
     setTimeout(() => {
-        if (window.switchSocialTab) window.switchSocialTab('heroes');
-    }, 1000);
+        const chatBox = document.getElementById('community-chat-messages');
+        if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+    }, 50);
+
+    // Quick Fix: Expose helper for onclick
+    window.renderChat = renderChat;
+
+    // Quick Fix: Expose helper for onclick
+    window.renderChat = renderChat;
+}
+
+// Init Social Hub logic if screen is active (or call manually)
+// We create a global init for social to be safe
+window.initSocialHub = () => {
+    switchSocialTab('heroes');
+};
+
+// Add to global initialization or just run it once to populate default
+setTimeout(() => {
+    if (window.switchSocialTab) window.switchSocialTab('heroes');
+}, 1000);
 
 
-    window.togglePointsGuide = () => {
-        const modal = document.getElementById('info-modal');
-        if (!modal) return;
+window.togglePointsGuide = () => {
+    const modal = document.getElementById('info-modal');
+    if (!modal) return;
 
-        const content = modal.querySelector('.info-modal-content');
+    const content = modal.querySelector('.info-modal-content');
 
-        if (modal.classList.contains('active')) {
-            modal.classList.remove('active');
-        } else {
-            // Render Content
-            content.innerHTML = `
+    if (modal.classList.contains('active')) {
+        modal.classList.remove('active');
+    } else {
+        // Render Content
+        content.innerHTML = `
             <div class="info-header">
                 <i class="fa-solid fa-shield-cat" style="font-size: 40px; color: var(--primary); margin-bottom: 10px;"></i>
                 <h3 style="margin: 0; color: white; font-size: 22px; font-weight: 900;">EL CAMINO DEL HÉROE</h3>
@@ -1448,31 +1453,33 @@ async function getVetAIResponse(q) {
             </div>
         `;
 
+    }
+};
+
+
+// Home News Renderer
+function renderHomeNews() {
+    const container = document.getElementById('home-news-feed');
+    if (!container) return;
+
+    const news = [
+        {
+            tag: 'LEGISLACIÓN',
+            title: 'Nueva Ley de Bienestar: ¿Tienes ya tu seguro?',
+            desc: 'Desde septiembre es obligatorio el seguro de responsabilidad civil para todos los perros. Evita multas de hasta 500€.',
+            img: 'https://images.unsplash.com/photo-1450778869180-41d0601e046e?q=80&w=1000&auto=format&fit=crop',
+            readTime: '2 min lectura'
+        },
+        {
+            tag: 'SALUD ESTACIONAL',
+            title: 'Alerta de Calor: Cuidado con las almohadillas',
+            desc: 'El asfalto alcanza 60°C hoy. La regla de oro: si quemas tu mano en 5s, quema sus patas. Pasea por la sombra.',
+            img: 'https://images.unsplash.com/photo-1599147576161-1db5e3d74c86?q=80&w=1000&auto=format&fit=crop',
+            readTime: 'Consejo rápido'
         }
-    };
+    ];
 
-    window.renderHomeNews = () => {
-        const container = document.getElementById('home-news-feed');
-        if (!container) return;
-
-        const news = [
-            {
-                tag: 'LEGISLACIÓN',
-                title: 'Nueva Ley de Bienestar: ¿Tienes ya tu seguro?',
-                desc: 'Desde septiembre es obligatorio el seguro de responsabilidad civil para todos los perros. Evita multas de hasta 500€.',
-                img: 'https://images.unsplash.com/photo-1450778869180-41d0601e046e?q=80&w=1000&auto=format&fit=crop',
-                readTime: '2 min lectura'
-            },
-            {
-                tag: 'SALUD ESTACIONAL',
-                title: 'Alerta de Calor: Cuidado con las almohadillas',
-                desc: 'El asfalto alcanza 60°C hoy. La regla de oro: si quemas tu mano en 5s, quema sus patas. Pasea por la sombra.',
-                img: 'https://images.unsplash.com/photo-1599147576161-1db5e3d74c86?q=80&w=1000&auto=format&fit=crop',
-                readTime: 'Consejo rápido'
-            }
-        ];
-
-        container.innerHTML = news.map(n => `
+    container.innerHTML = news.map(n => `
         <div class="news-card">
             <div style="position:relative;">
                 <img src="${n.img}" class="news-image" alt="${n.title}">
@@ -1489,195 +1496,138 @@ async function getVetAIResponse(q) {
             </div>
         </div>
     `).join('');
-    };
+}
 
-    window.navigateToRadar = () => {
-        // 1. Go to Rescue Screen
-        const rescueLink = document.querySelector('.nav-link[data-screen="rescue"]');
-        if (rescueLink) rescueLink.click();
+// Expose final version of renderHomeNews
+window.renderHomeNews = renderHomeNews;
 
-        // 2. Switch to Radar Tab (with small delay to ensure DOM is ready)
-        setTimeout(() => {
-            const radarTab = document.querySelector('.rescue-tab[data-tab="radar"]');
-            if (radarTab) radarTab.click();
-        }, 100);
-    };
-
-    // Initialize Home News safely
-    document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(() => {
-            if (window.renderHomeNews) window.renderHomeNews();
-        }, 800);
-    });
-
-    function renderHomeNews() {
-
-        const container = document.getElementById('home-news-feed');
-        if (!container) return;
-
-        const news = [
-            {
-                tag: 'LEGISLACIÓN',
-                title: 'Nueva Ley de Bienestar: ¿Tienes ya tu seguro?',
-                desc: 'Desde septiembre es obligatorio el seguro de responsabilidad civil para todos los perros. Evita multas de hasta 500€.',
-                img: 'https://images.unsplash.com/photo-1450778869180-41d0601e046e?q=80&w=1000&auto=format&fit=crop',
-                readTime: '2 min lectura'
-            },
-            {
-                tag: 'SALUD ESTACIONAL',
-                title: 'Alerta de Calor: Cuidado con las almohadillas',
-                desc: 'El asfalto alcanza 60°C hoy. La regla de oro: si quemas tu mano en 5s, quema sus patas. Pasea por la sombra.',
-                img: 'https://images.unsplash.com/photo-1599147576161-1db5e3d74c86?q=80&w=1000&auto=format&fit=crop',
-                readTime: 'Consejo rápido'
-            }
-        ];
-
-        container.innerHTML = news.map(n => `
-        <div class="news-card">
-            <div style="position:relative;">
-                <img src="${n.img}" class="news-image" alt="${n.title}">
-                <span class="news-tag">${n.tag}</span>
-            </div>
-            <div class="news-content">
-                <h4 style="font-size:16px; font-weight:800; line-height:1.4; margin-bottom:8px; color:white;">${n.title}</h4>
-                <p style="font-size:13px; color:var(--text-muted); line-height:1.5; margin-bottom:12px;">${n.desc}</p>
-                
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-size:11px; color:var(--text-dim); font-weight:600;"><i class="fa-regular fa-clock"></i> ${n.readTime}</span>
-                    <button style="background:none; border:none; color:var(--primary); font-size:12px; font-weight:700; cursor:pointer;">LEER MÁS</button>
-                </div>
-            </div>
-        </div>
-    `).join('');
-    };
-
-    // Navigation helper
-    window.navigateToRadar = () => {
-        Router.navigate('rescue');
-        setTimeout(() => {
-            const radarTab = document.querySelector('.rescue-tab[data-tab="radar"]');
-            if (radarTab) radarTab.click();
-        }, 150);
-    };
+// Navigation helper
+window.navigateToRadar = () => {
+    Router.navigate('rescue');
+    setTimeout(() => {
+        const radarTab = document.querySelector('.rescue-tab[data-tab="radar"]');
+        if (radarTab) radarTab.click();
+    }, 300);
+};
 
 
-    /* --- AUTH UI HANDLERS v2.0 --- */
+/* --- AUTH UI HANDLERS v2.0 --- */
 
-    // Función para mostrar toast desde Auth
-    function showAuthToast(message, type = 'info') {
-        if (window.PWAInstall && window.PWAInstall.showToast) {
-            window.PWAInstall.showToast(message, type);
-        } else {
-            // Fallback: crear toast simple
-            const toast = document.createElement('div');
-            toast.style.cssText = `
+// Función para mostrar toast desde Auth
+function showAuthToast(message, type = 'info') {
+    if (window.PWAInstall && window.PWAInstall.showToast) {
+        window.PWAInstall.showToast(message, type);
+    } else {
+        // Fallback: crear toast simple
+        const toast = document.createElement('div');
+        toast.style.cssText = `
                 position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
                 background: ${type === 'success' ? '#0a8e69' : type === 'error' ? '#ff3b30' : '#333'};
                 color: white; padding: 14px 24px; border-radius: 12px; z-index: 99999;
                 font-size: 14px; font-weight: 600;
             `;
-            toast.textContent = message;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
-        }
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+}
+
+window.handleRegister = () => {
+    const name = document.getElementById('reg-name')?.value?.trim();
+    const pass = document.getElementById('reg-pass')?.value;
+    const spirit = document.getElementById('reg-spirit')?.value || 'wolf';
+
+    if (!name || !pass) {
+        showAuthToast('Por favor completa nombre y contraseña', 'error');
+        return;
     }
 
-    window.handleRegister = () => {
-        const name = document.getElementById('reg-name')?.value?.trim();
-        const pass = document.getElementById('reg-pass')?.value;
-        const spirit = document.getElementById('reg-spirit')?.value || 'wolf';
+    if (name.length < 3) {
+        showAuthToast('El nombre debe tener al menos 3 caracteres', 'error');
+        return;
+    }
 
-        if (!name || !pass) {
-            showAuthToast('Por favor completa nombre y contraseña', 'error');
-            return;
-        }
+    if (pass.length < 4) {
+        showAuthToast('La contraseña debe tener al menos 4 caracteres', 'error');
+        return;
+    }
 
-        if (name.length < 3) {
-            showAuthToast('El nombre debe tener al menos 3 caracteres', 'error');
-            return;
-        }
+    const result = Auth.register(name, pass, spirit);
 
-        if (pass.length < 4) {
-            showAuthToast('La contraseña debe tener al menos 4 caracteres', 'error');
-            return;
-        }
-
-        const result = Auth.register(name, pass, spirit);
-
-        if (result.success) {
-            showAuthToast('¡Bienvenido a la Manada, ' + name + '!', 'success');
-            Auth.updateUI();
-        } else {
-            showAuthToast(result.error || 'Error al crear cuenta', 'error');
-        }
-    };
-
-    window.handleLogin = () => {
-        const name = document.getElementById('login-name')?.value?.trim();
-        const pass = document.getElementById('login-pass')?.value;
-
-        if (!name || !pass) {
-            showAuthToast('Por favor ingresa nombre y contraseña', 'error');
-            return;
-        }
-
-        const result = Auth.login(name, pass);
-
-        if (result.success) {
-            showAuthToast('¡Bienvenido de vuelta!', 'success');
-            Auth.updateUI();
-        } else {
-            showAuthToast(result.error || 'Credenciales incorrectas', 'error');
-        }
-    };
-
-    window.handleGoogleSignIn = async () => {
-        showAuthToast('Conectando con Google...', 'info');
-
-        try {
-            const result = await Auth.loginWithGoogle();
-            if (result.success) {
-                showAuthToast('¡Conectado con Google!', 'success');
-                Auth.updateUI();
-            }
-        } catch (e) {
-            showAuthToast('Error al conectar con Google', 'error');
-        }
-    };
-
-    window.showRegister = () => {
-        document.getElementById('screen-login')?.classList.remove('active');
-        document.getElementById('screen-register')?.classList.add('active');
-        document.querySelector('.bottom-nav')?.classList.add('hidden');
-    };
-
-    window.showLogin = () => {
-        document.getElementById('screen-register')?.classList.remove('active');
-        document.getElementById('screen-login')?.classList.add('active');
-        document.querySelector('.bottom-nav')?.classList.add('hidden');
-    };
-
-    window.selectSpirit = (type, el) => {
-        document.querySelectorAll('.animal-option').forEach(o => o.classList.remove('selected'));
-        el.classList.add('selected');
-        document.getElementById('reg-spirit').value = type;
-    };
-
-    // Initialize Auth UI
-    document.addEventListener('DOMContentLoaded', () => {
+    if (result.success) {
+        showAuthToast('¡Bienvenido a la Manada, ' + name + '!', 'success');
         Auth.updateUI();
-    });
+    } else {
+        showAuthToast(result.error || 'Error al crear cuenta', 'error');
+    }
+};
 
-    window.renderProfile = () => {
-        if (!Auth.user) return;
+window.handleLogin = () => {
+    const name = document.getElementById('login-name')?.value?.trim();
+    const pass = document.getElementById('login-pass')?.value;
 
-        document.querySelector('#screen-profile .user-avatar img').src = Auth.user.avatar;
-        document.querySelector('#profile-name').innerText = Auth.user.name;
-        document.querySelector('#stat-alerts').innerText = Auth.user.stats.alerts;
-        document.querySelector('#stat-sponsored').innerText = Auth.user.stats.sponsored;
+    if (!name || !pass) {
+        showAuthToast('Por favor ingresa nombre y contraseña', 'error');
+        return;
+    }
 
-        const historyContainer = document.getElementById('profile-history');
-        historyContainer.innerHTML = Auth.user.history.map(h => `
+    const result = Auth.login(name, pass);
+
+    if (result.success) {
+        showAuthToast('¡Bienvenido de vuelta!', 'success');
+        Auth.updateUI();
+    } else {
+        showAuthToast(result.error || 'Credenciales incorrectas', 'error');
+    }
+};
+
+window.handleGoogleSignIn = async () => {
+    showAuthToast('Conectando con Google...', 'info');
+
+    try {
+        const result = await Auth.loginWithGoogle();
+        if (result.success) {
+            showAuthToast('¡Conectado con Google!', 'success');
+            Auth.updateUI();
+        }
+    } catch (e) {
+        showAuthToast('Error al conectar con Google', 'error');
+    }
+};
+
+window.showRegister = () => {
+    document.getElementById('screen-login')?.classList.remove('active');
+    document.getElementById('screen-register')?.classList.add('active');
+    document.querySelector('.bottom-nav')?.classList.add('hidden');
+};
+
+window.showLogin = () => {
+    document.getElementById('screen-register')?.classList.remove('active');
+    document.getElementById('screen-login')?.classList.add('active');
+    document.querySelector('.bottom-nav')?.classList.add('hidden');
+};
+
+window.selectSpirit = (type, el) => {
+    document.querySelectorAll('.animal-option').forEach(o => o.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('reg-spirit').value = type;
+};
+
+// Initialize Auth UI
+document.addEventListener('DOMContentLoaded', () => {
+    Auth.updateUI();
+});
+
+window.renderProfile = () => {
+    if (!Auth.user) return;
+
+    document.querySelector('#screen-profile .user-avatar img').src = Auth.user.avatar;
+    document.querySelector('#profile-name').innerText = Auth.user.name;
+    document.querySelector('#stat-alerts').innerText = Auth.user.stats.alerts;
+    document.querySelector('#stat-sponsored').innerText = Auth.user.stats.sponsored;
+
+    const historyContainer = document.getElementById('profile-history');
+    historyContainer.innerHTML = Auth.user.history.map(h => `
         <div style="background: var(--bg-surface); padding: 15px; border-radius: 12px; display: flex; align-items: center; gap: 15px;">
             <div style="background: rgba(255,255,255,0.05); width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
                 <i class="fa-solid ${h.icon || 'fa-star'}"></i>
@@ -1688,29 +1638,33 @@ async function getVetAIResponse(q) {
             </div>
         </div>
     `).join('');
-    };
+};
 
-    /* --- PWA INSTALL LOGIC ---
-     * NOTA: La lógica de instalación PWA ahora está en /public/pwa-install.js
-     * Se carga antes que main.js para capturar el evento beforeinstallprompt correctamente.
-     * Ver: PWAInstall global object
-     */
+/* --- PWA INSTALL LOGIC ---
+ * NOTA: La lógica de instalación PWA ahora está en /public/pwa-install.js
+ * Se carga antes que main.js para capturar el evento beforeinstallprompt correctamente.
+ * Ver: PWAInstall global object
+ */
 
 
-    /* --- SERVICE WORKER CONTROL (v6.0 - STABLE) --- */
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js')
-                .then(registration => {
-                    console.log('✅ SW v7.2 Registered:', registration);
-                    // Si hay una actualización esperando, forzarla
-                    if (registration.waiting) {
-                        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-                    }
-                })
-                .catch(error => {
-                    console.log('❌ SW Registration failed:', error);
-                });
-        });
-    }
+/* --- SERVICE WORKER CONTROL (v6.0 - STABLE) --- */
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(registration => {
+                console.log('✅ SW v7.2 Registered:', registration);
+                // Si hay una actualización esperando, forzarla
+                if (registration.waiting) {
+                    registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                }
+            })
+            .catch(error => {
+                console.log('❌ SW Registration failed:', error);
+            });
+    });
 }
+
+// Final check for news on load
+setTimeout(() => {
+    if (window.renderHomeNews) window.renderHomeNews();
+}, 1000);

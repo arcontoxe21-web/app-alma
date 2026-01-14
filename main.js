@@ -1270,7 +1270,8 @@ function init() {
         const typing = document.createElement('div');
         typing.className = 'chat-bubble other';
         typing.id = 'ai-typing-indicator';
-        typing.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Dra. Alma (v4.1) está escribiendo...';
+        typing.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Dra. Alma (v5.0) está escribiendo...';
+        chatContainer.appendChild(typing);
         chatContainer.appendChild(typing);
         chatContainer.scrollTop = chatContainer.scrollHeight;
 
@@ -1960,7 +1961,7 @@ InstallApp.init();
 window.InstallApp = InstallApp;
 
 
-/* --- SERVICE WORKER CONTROL (v4.1) --- */
+/* --- SERVICE WORKER CONTROL (v5.0) --- */
 if ('serviceWorker' in navigator) {
     // 1. Primero desregistramos para matar la caché v3
     navigator.serviceWorker.getRegistrations().then(function (registrations) {
@@ -1972,7 +1973,7 @@ if ('serviceWorker' in navigator) {
         // 2. Registramos el nuevo
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('./sw.js').then(registration => {
-                console.log('SW v4.1 Registered: ', registration);
+                console.log('SW v5.0 Registered: ', registration);
             }).catch(registrationError => {
                 console.log('SW Registration failed: ', registrationError);
             });

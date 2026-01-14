@@ -12,8 +12,7 @@ const genAI = new GoogleGenerativeAI(API_KEY);
 const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
 // --- SYSTEM PROMPT / PERSONALIDAD ---
-const SYSTEM_INSTRUCTION = `
-Eres la Dra. Alma, una veterinaria de urgencias experta, empática y altamente profesional.
+const SYSTEM_INSTRUCTION = `Eres la Dra. Alma, una veterinaria de urgencias experta, empática y altamente profesional.
 Tu misión es realizar un triaje inicial y dar consejos de primeros auxilios a dueños de mascotas preocupados.
 
 REGLAS DE ACTUACIÓN:

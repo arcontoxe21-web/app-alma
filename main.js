@@ -1859,6 +1859,9 @@ const InstallApp = {
 
     handleInstall() {
         console.log('👇 Install button clicked');
+        const btn = document.getElementById('btn-install-pwa');
+        const originalContent = btn ? btn.innerHTML : '';
+
         if (this.isIos) {
             // iOS: Show Instructions Modal
             const modal = document.getElementById('ios-install-modal');
@@ -1866,18 +1869,43 @@ const InstallApp = {
                 modal.classList.remove('hidden');
                 modal.style.display = 'flex';
             }
-        } else if (this.deferredPrompt) {
-            // Android/Desktop: Trigger Prompt
-            this.deferredPrompt.prompt();
-            this.deferredPrompt.userChoice.then((choiceResult) => {
-                if (choiceResult.outcome === 'accepted') {
-                    console.log('User accepted install');
-                }
-                this.deferredPrompt = null;
-            });
+            return;
+        }
+
+        if (this.deferredPrompt) {
+            // Start Feedback
+            if (btn) {
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-sync fa-spin"></i> PREPARANDO...';
+            }
+            showToast("Iniciando instalación segura...", "info");
+
+            setTimeout(() => {
+                // Android/Desktop: Trigger Prompt
+                this.deferredPrompt.prompt();
+
+                this.deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        showToast("¡Instalación iniciada! Revisa tu pantalla de inicio.", "success");
+                        console.log('User accepted install');
+                    } else {
+                        showToast("Instalación cancelada.", "info");
+                    }
+                    this.deferredPrompt = null;
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = originalContent;
+                    }
+                });
+            }, 800);
         } else {
-            // Fallback
-            alert('Para instalar: Busca "Añadir a pantalla de inicio" o "Instalar aplicación" en el menú de tu navegador.');
+            // Fallback improved
+            showToast("Sincronizando con el sistema... reintenta en 3 segundos.", "info");
+            if (btn) {
+                btn.classList.add('btn-loading');
+                setTimeout(() => btn.classList.remove('btn-loading'), 2000);
+            }
+            console.warn('Install prompt not yet available');
         }
     },
 

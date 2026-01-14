@@ -94,16 +94,21 @@ const Auth = {
         return { success: false, error: 'Usuario o contraseña incorrectos' };
     },
 
-    // Login con Google (simulado por ahora)
+    // Login con Google (DEMO - simulado)
     async loginWithGoogle() {
-        // Por ahora simulamos un login con Google
-        // En producción usarías Firebase Auth o similar
+        // Simulamos un pequeño delay para parecer real
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        // Generar nombre aleatorio para la demo
+        const nombres = ['Alex', 'Sam', 'Jordan', 'Taylor', 'Morgan', 'Casey', 'Riley', 'Quinn'];
+        const randomName = nombres[Math.floor(Math.random() * nombres.length)];
+
         const mockGoogleUser = {
             id: 'google_' + Date.now(),
-            name: 'Usuario Google',
-            email: 'usuario@gmail.com',
-            animalType: 'wolf',
-            avatar: 'https://lh3.googleusercontent.com/a/default-user',
+            name: randomName,
+            email: randomName.toLowerCase() + '@gmail.com',
+            animalType: 'eagle',
+            avatar: 'https://ui-avatars.com/api/?name=' + randomName + '&background=10fbba&color=000&size=200&bold=true',
             level: 1,
             xp: 0,
             stats: { alerts: 0, sponsored: 0, events: 0 },

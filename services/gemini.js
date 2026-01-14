@@ -8,11 +8,22 @@ if (!API_KEY) {
     console.error("❌ Faltan la API Key de Gemini. Configura VITE_GEMINI_API_KEY en tu archivo .env");
 }
 
-const genAI = new GoogleGenerativeAI(API_KEY);
-const model = genAI.getGenerativeModel({
-    model: "gemini-1.5-flash",
-    systemInstruction: SYSTEM_INSTRUCTION
-});
+// Safe Initialization
+let genAI = null;
+let model = null;
+
+if (API_KEY) {
+    try {
+        genAI = new GoogleGenerativeAI(API_KEY);
+        model = genAI.getGenerativeModel({
+            model: "gemini-1.5-flash",
+            // systemInstruction moving to startChat or kept here if SDK supports it
+            systemInstruction: SYSTEM_INSTRUCTION
+        });
+    } catch (e) {
+        console.error("Gemini Init Error:", e);
+    }
+}
 
 // --- SYSTEM PROMPT / PERSONALIDAD ---
 const SYSTEM_INSTRUCTION = `Eres la Dra. Alma, una veterinaria de urgencias experta, empática y altamente profesional.
@@ -38,6 +49,10 @@ Estás integrado en la app "Alma Elite".
 let chatSession = null;
 
 export async function initVetSession() {
+    if (!model) {
+        console.warn("⚠️ Modelo no inicializado (Falta API Key o Error)");
+        return;
+    }
     try {
         chatSession = model.startChat({
             history: [
@@ -50,7 +65,6 @@ export async function initVetSession() {
                     parts: [{ text: "Entendido. Soy la Dra. Alma. Estoy lista para atender emergencias con profesionalidad y calma. ¿Cuál es la situación?" }],
                 },
             ],
-            // systemInstruction movido a getGenerativeModel (v5.1)
         });
         console.log("✅ Sesión de Gemini (Dra. Alma) inicializada.");
     } catch (error) {

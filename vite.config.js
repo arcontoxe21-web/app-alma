@@ -2,7 +2,7 @@ import { defineConfig } from 'vite'
 import basicSsl from '@vitejs/plugin-basic-ssl'
 
 export default defineConfig({
-    base: '/Alma-Elite/',
+    base: '/app-alma/',
     plugins: [
         basicSsl()
     ],

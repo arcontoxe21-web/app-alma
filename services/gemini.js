@@ -82,8 +82,11 @@ export async function getVetResponse(userMessage) {
     } catch (error) {
         console.error("Error en Gemini:", error);
         return `
-            <p><strong>Dra. Alma:</strong> Lo siento, estoy teniendo problemas de conexión con mi base de datos médica.</p>
-            <p>Si es una emergencia, no esperes: <strong>acude a tu clínica veterinaria más cercana</strong>.</p>
+            <div class="vet-alert" style="border-color: #ff4444; background: rgba(255,0,0,0.1);">
+                <i class="fa-solid fa-bug"></i> <strong>Error Técnico:</strong>
+                <p style="font-size: 11px; font-family: monospace;">${error.message || error.toString()}</p>
+            </div>
+            <p><strong>Dra. Alma:</strong> Lo siento, ha ocurrido un error interno. Por favor, intenta enviarme el mensaje de nuevo.</p>
         `;
     }
 }

@@ -48,7 +48,10 @@ export async function initVetSession() {
                     parts: [{ text: "Entendido. Soy la Dra. Alma. Estoy lista para atender emergencias con profesionalidad y calma. ¿Cuál es la situación?" }],
                 },
             ],
-            systemInstruction: SYSTEM_INSTRUCTION,
+            systemInstruction: {
+                role: 'system',
+                parts: [{ text: SYSTEM_INSTRUCTION }]
+            },
         });
         console.log("✅ Sesión de Gemini (Dra. Alma) inicializada.");
     } catch (error) {

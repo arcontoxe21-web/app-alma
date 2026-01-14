@@ -9,7 +9,10 @@ if (!API_KEY) {
 }
 
 const genAI = new GoogleGenerativeAI(API_KEY);
-const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+const model = genAI.getGenerativeModel({
+    model: "gemini-1.5-flash",
+    systemInstruction: SYSTEM_INSTRUCTION
+});
 
 // --- SYSTEM PROMPT / PERSONALIDAD ---
 const SYSTEM_INSTRUCTION = `Eres la Dra. Alma, una veterinaria de urgencias experta, empática y altamente profesional.
@@ -47,10 +50,7 @@ export async function initVetSession() {
                     parts: [{ text: "Entendido. Soy la Dra. Alma. Estoy lista para atender emergencias con profesionalidad y calma. ¿Cuál es la situación?" }],
                 },
             ],
-            systemInstruction: {
-                role: 'system',
-                parts: [{ text: SYSTEM_INSTRUCTION }]
-            },
+            // systemInstruction movido a getGenerativeModel (v5.1)
         });
         console.log("✅ Sesión de Gemini (Dra. Alma) inicializada.");
     } catch (error) {

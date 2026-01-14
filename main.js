@@ -239,10 +239,11 @@ window.filterCatalog = (filter, btn) => {
     }
 };
 
-const posts = [
-    { id: 1, author: 'Marta Soler', text: 'MAXIMUS hoy nos ha dado una lección de coraje.', img: animals[0].imageUrl, likes: 45, time: '1h' },
-    { id: 2, author: 'Refugio Alma', text: 'Nuevas llegadas al santuario.', img: animals[1].imageUrl, likes: 89, time: '3h' }
+const posts = window.posts || [
+    { id: 1, author: 'Marta Soler', text: 'MAXIMUS hoy nos ha dado una lección de coraje.', img: animals[0]?.imageUrl, likes: 45, time: '1h' },
+    { id: 2, author: 'Refugio Alma', text: 'Nuevas llegadas al santuario.', img: animals[1]?.imageUrl, likes: 89, time: '3h' }
 ];
+
 
 /* --- UI TOOLKIT --- */
 function showToast(message, type = 'info') {
@@ -320,12 +321,13 @@ window.Router = Router;
 window.createAnimalCard = createAnimalCard;
 window.showDetail = showDetail;
 window.initRescueMap = initRescueMap;
-window.initRadarMap = () => { if (typeof initRadarMap === 'function') initRadarMap(); };
-window.switchSocialTab = (tabId) => { if (typeof switchSocialTab === 'function') switchSocialTab(tabId); };
-window.renderHomeNews = () => { if (typeof renderHomeNews === 'function') renderHomeNews(); };
-window.renderCatalog = () => { if (typeof filterCatalog === 'function') filterCatalog('all'); };
-window.renderCommunity = () => { if (typeof switchSocialTab === 'function') switchSocialTab('heroes'); };
+window.initRadarMap = initRadarMap;
+window.switchSocialTab = switchSocialTab;
+window.renderHomeNews = renderHomeNews;
+window.renderCatalog = () => filterCatalog('all');
+window.renderCommunity = () => switchSocialTab('heroes');
 window.LocationManager = LocationManager;
+
 
 
 /* --- RENDERERS --- */
@@ -1503,12 +1505,13 @@ async function getVetAIResponse(q) {
 
     // Initialize Home News safely
     document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(renderHomeNews, 500);
+        setTimeout(() => {
+            if (window.renderHomeNews) window.renderHomeNews();
+        }, 800);
     });
-    // Also try immediately in case DOM is already ready (for hot reload)
-    renderHomeNews();
 
-    window.renderHomeNews = () => {
+    function renderHomeNews() {
+
         const container = document.getElementById('home-news-feed');
         if (!container) return;
 
@@ -1548,24 +1551,15 @@ async function getVetAIResponse(q) {
     `).join('');
     };
 
+    // Navigation helper
     window.navigateToRadar = () => {
-        // 1. Go to Rescue Screen
-        const rescueLink = document.querySelector('.nav-link[data-screen="rescue"]');
-        if (rescueLink) rescueLink.click();
-
-        // 2. Switch to Radar Tab (with small delay to ensure DOM is ready)
+        Router.navigate('rescue');
         setTimeout(() => {
             const radarTab = document.querySelector('.rescue-tab[data-tab="radar"]');
             if (radarTab) radarTab.click();
-        }, 100);
+        }, 150);
     };
 
-    // Initialize Home News safely
-    document.addEventListener('DOMContentLoaded', () => {
-        setTimeout(renderHomeNews, 500);
-    });
-    // Also try immediately in case DOM is already ready (for hot reload)
-    renderHomeNews();
 
     /* --- AUTH UI HANDLERS v2.0 --- */
 

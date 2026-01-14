@@ -1,9 +1,6 @@
-const CACHE_NAME = 'alma-elite-v6.5';
 const ASSETS = [
     './',
     './index.html',
-    './style.css',
-    './main.js',
     './manifest.json',
     './icons/icon-192.png',
     './icons/icon-512.png',

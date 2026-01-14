@@ -1,4 +1,4 @@
-const CACHE_NAME = 'alma-elite-v5.4';
+const CACHE_NAME = 'alma-elite-v6.0';
 const ASSETS = [
     './',
     './index.html',

@@ -1051,341 +1051,343 @@ function updateLocationDisplay(lat, lng) {
     if (display) display.innerHTML = `<i class="fa-solid fa-location-dot" style="color: var(--primary); margin-right: 8px;"></i> ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 }
 
-async function searchAddress() {
-    const input = document.getElementById('search-address-input');
-    const query = input.value.trim();
-    if (!query) return;
+async function getVetAIResponse(q) {
+    const intro = "Soy la **Dra. Alma (v6.0)**, especialista en medicina de urgencias de la Manada.";
+    async function searchAddress() {
+        const input = document.getElementById('search-address-input');
+        const query = input.value.trim();
+        if (!query) return;
 
-    const btn = document.getElementById('btn-search-address');
-    const originalContent = btn.innerHTML;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-
-    try {
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
-        const data = await response.json();
-
-        if (data && data.length > 0) {
-            const result = data[0];
-            const pos = [parseFloat(result.lat), parseFloat(result.lon)];
-
-            rescueMap.flyTo(pos, 16);
-            rescueMarker.setLatLng(pos);
-            LocationManager.pos = pos;
-            LocationManager.syncUI();
-            showToast("Ubicación encontrada", "success");
-            input.value = '';
-        } else {
-            showToast("No se encontró la dirección.", "info");
-        }
-    } catch (error) {
-        console.error("Error en búsqueda:", error);
-        showToast("Error al conectar con el servidor de mapas.", "error");
-    } finally {
-        btn.innerHTML = originalContent;
-    }
-}
-
-window.searchAddress = searchAddress;
-
-function handleLocateMe() {
-    const btn = document.getElementById('btn-locate-me');
-    if (!btn) return;
-
-    const originalIcon = btn.innerHTML;
-    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
-    btn.disabled = true;
-
-    LocationManager.forceLocate()
-        .then(() => {
-            const originalIcon = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-            btn.disabled = true;
-
-            // Simulate GPS
-            LocationManager.forceLocate()
-                .then(() => {
-                    btn.innerHTML = originalIcon;
-                    btn.disabled = false;
-                    showToast("Ubicación actualizada", "success");
-                })
-                .catch(err => {
-                    console.error("Fallo manual GPS:", err);
-                    let msg = "No se pudo obtener señal.";
-                    let detail = "Mueve el pin o usa el buscador.";
-
-                    if (err.code === 1) {
-                        msg = "Permiso denegado.";
-                        detail = "Actívalo en el icono del candado de tu navegador.";
-                    } else if (err.code === 2) {
-                        msg = "Señal no disponible.";
-                        detail = "Revisa el WiFi de tu Mac o usa el buscador.";
-                    } else if (err.code === 3) {
-                        msg = "Tiempo agotado.";
-                        detail = "Prueba de nuevo cerca de una ventana.";
-                    }
-
-                    showToast(`${msg} ${detail}`, "error");
-                    btn.innerHTML = originalIcon;
-                    btn.disabled = false;
-                });
-        });
-
-}
-
-/* --- PHOTO EVIDENCE LOGIC --- */
-window.handlePhotoSelect = (input) => {
-    if (input.files && input.files[0]) {
-        const file = input.files[0];
-        const reader = new FileReader();
-
-        reader.onload = function (e) {
-            document.getElementById('preview-img').src = e.target.result;
-            document.getElementById('rescue-photo-preview').style.display = 'block';
-        }
-
-        reader.readAsDataURL(file);
-    }
-}
-
-window.clearPhoto = () => {
-    document.getElementById('rescue-photo').value = '';
-    document.getElementById('rescue-photo-preview').style.display = 'none';
-    document.getElementById('preview-img').src = '';
-}
-
-
-function handleRescueSubmit() {
-    console.log("Evento 'Enviar Alerta' capturado.");
-    const type = document.getElementById('rescue-type').value;
-    const condition = document.getElementById('rescue-condition').value.trim();
-    const photoInput = document.getElementById('rescue-photo');
-    const hasPhoto = photoInput.files && photoInput.files[0];
-
-    if (!rescueMarker) {
-        showToast("El mapa no se ha cargado correctamente.", "error");
-        return;
-    }
-
-    const pos = rescueMarker.getLatLng();
-
-    if (!condition) {
-        showToast("Describe el estado del animal para que los voluntarios puedan ayudar.", "info");
-        document.getElementById('rescue-condition').focus();
-        return;
-    }
-
-    const btn = document.getElementById('btn-submit-rescue');
-    const originalText = btn.innerHTML;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> DESPLEGANDO SOS...';
-    btn.disabled = true;
-
-    setTimeout(() => {
-        const newAlert = {
-            id: `SOS-${Date.now().toString().slice(-4)}`,
-            type: type.charAt(0).toUpperCase() + type.slice(1),
-            status: 'URGENTE SOS',
-            loc: [pos.lat, pos.lng],
-            address: `Lat: ${pos.lat.toFixed(4)}, Lng: ${pos.lng.toFixed(4)}`, // Simulation
-            title: `SOS: ${type.toUpperCase()} EN PELIGRO`,
-            user: 'Tú (Hace un momento)',
-            messages: ['ALERTA SOS', condition],
-            hasPhoto: hasPhoto, // Flag for UI logic later if needed
-            // If we had a backend, we would upload the photo here.
-            distance: '0.0'
-        };
-        activeAlerts.unshift(newAlert);
-
-        btn.innerHTML = '<i class="fa-solid fa-check"></i> ALERTA ENVIADA';
-        btn.style.background = 'var(--primary)';
-        btn.style.color = '#000';
-
-        setTimeout(() => {
-            showToast("¡Alerta SOS publicada con éxito!", "success");
-            btn.innerHTML = originalText;
-            btn.style.background = 'var(--danger)';
-            btn.style.color = '#fff';
-            btn.disabled = false;
-            document.getElementById('rescue-condition').value = '';
-
-            // Ir al radar para ver la nueva alerta
-            const radarTab = document.querySelector('.rescue-tab[data-tab="radar"]');
-            if (radarTab) radarTab.click();
-        }, 800);
-    }, 1000);
-}
-
-/* --- INITIALIZATION --- */
-function init() {
-    Router.init();
-    initRescueTabs();
-    LocationManager.init();
-
-    // Listener para inicialización de mapas cuando se entra en la pantalla de rescate
-    document.querySelectorAll('.nav-link').forEach(link => {
-        link.addEventListener('click', () => {
-            if (link.getAttribute('data-screen') === 'rescue') {
-                // Pequeño delay para dejar que la pantalla se vuelva visible y Leaflet tome bien las medidas
-                setTimeout(() => {
-                    const activeTab = document.querySelector('.rescue-tab.active');
-                    if (activeTab) {
-                        const id = activeTab.getAttribute('data-tab');
-                        if (id === 'report') initRescueMap();
-                        else if (id === 'radar') initRadarMap();
-                    }
-                }, 100);
-            }
-        });
-    });
-
-    // Forzar inicialización si ya estamos en la pantalla (útil para recargas)
-    if (Router.activeScreen === 'rescue') {
-        setTimeout(initRescueMap, 300);
-    }
-
-    // Botones de acción SOS
-    const submitBtn = document.getElementById('btn-submit-rescue');
-    if (submitBtn) submitBtn.onclick = handleRescueSubmit;
-
-    const locateBtn = document.getElementById('btn-locate-me');
-    if (locateBtn) locateBtn.onclick = handleLocateMe;
-
-    /* --- VET AI LOGIC --- */
-    window.sendVetMessage = async (predefinedText) => {
-        const input = document.getElementById('vet-input');
-        const text = predefinedText || input.value.trim();
-        if (!text) return;
-
-        const chatContainer = document.getElementById('vet-ai-chat');
-
-        // Añadir mensaje del usuario
-        const userBubble = document.createElement('div');
-        userBubble.className = 'chat-bubble user';
-        userBubble.innerText = text;
-        chatContainer.appendChild(userBubble);
-
-        if (!predefinedText) input.value = '';
-        chatContainer.scrollTop = chatContainer.scrollHeight;
-
-        // Simular "IA escribiendo..." (Animación de carga real)
-        const typing = document.createElement('div');
-        typing.className = 'chat-bubble other';
-        typing.id = 'ai-typing-indicator';
-        typing.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Dra. Alma (v5.4) está escribiendo...';
-        chatContainer.appendChild(typing);
-        chatContainer.appendChild(typing);
-        chatContainer.scrollTop = chatContainer.scrollHeight;
+        const btn = document.getElementById('btn-search-address');
+        const originalContent = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
 
         try {
-            // Llamada REAL a la IA
-            const aiResponseHtml = await getVetResponse(text);
+            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+            const data = await response.json();
 
-            // Eliminar indicador de carga
-            const typingIndicator = document.getElementById('ai-typing-indicator');
-            if (typingIndicator) typingIndicator.remove();
+            if (data && data.length > 0) {
+                const result = data[0];
+                const pos = [parseFloat(result.lat), parseFloat(result.lon)];
 
-            // Renderizar respuesta
-            const reply = document.createElement('div');
-            reply.className = 'chat-bubble other';
-            reply.innerHTML = aiResponseHtml;
-            chatContainer.appendChild(reply);
+                rescueMap.flyTo(pos, 16);
+                rescueMarker.setLatLng(pos);
+                LocationManager.pos = pos;
+                LocationManager.syncUI();
+                showToast("Ubicación encontrada", "success");
+                input.value = '';
+            } else {
+                showToast("No se encontró la dirección.", "info");
+            }
+        } catch (error) {
+            console.error("Error en búsqueda:", error);
+            showToast("Error al conectar con el servidor de mapas.", "error");
+        } finally {
+            btn.innerHTML = originalContent;
+        }
+    }
+
+    window.searchAddress = searchAddress;
+
+    function handleLocateMe() {
+        const btn = document.getElementById('btn-locate-me');
+        if (!btn) return;
+
+        const originalIcon = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+        btn.disabled = true;
+
+        LocationManager.forceLocate()
+            .then(() => {
+                const originalIcon = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+                btn.disabled = true;
+
+                // Simulate GPS
+                LocationManager.forceLocate()
+                    .then(() => {
+                        btn.innerHTML = originalIcon;
+                        btn.disabled = false;
+                        showToast("Ubicación actualizada", "success");
+                    })
+                    .catch(err => {
+                        console.error("Fallo manual GPS:", err);
+                        let msg = "No se pudo obtener señal.";
+                        let detail = "Mueve el pin o usa el buscador.";
+
+                        if (err.code === 1) {
+                            msg = "Permiso denegado.";
+                            detail = "Actívalo en el icono del candado de tu navegador.";
+                        } else if (err.code === 2) {
+                            msg = "Señal no disponible.";
+                            detail = "Revisa el WiFi de tu Mac o usa el buscador.";
+                        } else if (err.code === 3) {
+                            msg = "Tiempo agotado.";
+                            detail = "Prueba de nuevo cerca de una ventana.";
+                        }
+
+                        showToast(`${msg} ${detail}`, "error");
+                        btn.innerHTML = originalIcon;
+                        btn.disabled = false;
+                    });
+            });
+
+    }
+
+    /* --- PHOTO EVIDENCE LOGIC --- */
+    window.handlePhotoSelect = (input) => {
+        if (input.files && input.files[0]) {
+            const file = input.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function (e) {
+                document.getElementById('preview-img').src = e.target.result;
+                document.getElementById('rescue-photo-preview').style.display = 'block';
+            }
+
+            reader.readAsDataURL(file);
+        }
+    }
+
+    window.clearPhoto = () => {
+        document.getElementById('rescue-photo').value = '';
+        document.getElementById('rescue-photo-preview').style.display = 'none';
+        document.getElementById('preview-img').src = '';
+    }
+
+
+    function handleRescueSubmit() {
+        console.log("Evento 'Enviar Alerta' capturado.");
+        const type = document.getElementById('rescue-type').value;
+        const condition = document.getElementById('rescue-condition').value.trim();
+        const photoInput = document.getElementById('rescue-photo');
+        const hasPhoto = photoInput.files && photoInput.files[0];
+
+        if (!rescueMarker) {
+            showToast("El mapa no se ha cargado correctamente.", "error");
+            return;
+        }
+
+        const pos = rescueMarker.getLatLng();
+
+        if (!condition) {
+            showToast("Describe el estado del animal para que los voluntarios puedan ayudar.", "info");
+            document.getElementById('rescue-condition').focus();
+            return;
+        }
+
+        const btn = document.getElementById('btn-submit-rescue');
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> DESPLEGANDO SOS...';
+        btn.disabled = true;
+
+        setTimeout(() => {
+            const newAlert = {
+                id: `SOS-${Date.now().toString().slice(-4)}`,
+                type: type.charAt(0).toUpperCase() + type.slice(1),
+                status: 'URGENTE SOS',
+                loc: [pos.lat, pos.lng],
+                address: `Lat: ${pos.lat.toFixed(4)}, Lng: ${pos.lng.toFixed(4)}`, // Simulation
+                title: `SOS: ${type.toUpperCase()} EN PELIGRO`,
+                user: 'Tú (Hace un momento)',
+                messages: ['ALERTA SOS', condition],
+                hasPhoto: hasPhoto, // Flag for UI logic later if needed
+                // If we had a backend, we would upload the photo here.
+                distance: '0.0'
+            };
+            activeAlerts.unshift(newAlert);
+
+            btn.innerHTML = '<i class="fa-solid fa-check"></i> ALERTA ENVIADA';
+            btn.style.background = 'var(--primary)';
+            btn.style.color = '#000';
+
+            setTimeout(() => {
+                showToast("¡Alerta SOS publicada con éxito!", "success");
+                btn.innerHTML = originalText;
+                btn.style.background = 'var(--danger)';
+                btn.style.color = '#fff';
+                btn.disabled = false;
+                document.getElementById('rescue-condition').value = '';
+
+                // Ir al radar para ver la nueva alerta
+                const radarTab = document.querySelector('.rescue-tab[data-tab="radar"]');
+                if (radarTab) radarTab.click();
+            }, 800);
+        }, 1000);
+    }
+
+    /* --- INITIALIZATION --- */
+    function init() {
+        Router.init();
+        initRescueTabs();
+        LocationManager.init();
+
+        // Listener para inicialización de mapas cuando se entra en la pantalla de rescate
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.addEventListener('click', () => {
+                if (link.getAttribute('data-screen') === 'rescue') {
+                    // Pequeño delay para dejar que la pantalla se vuelva visible y Leaflet tome bien las medidas
+                    setTimeout(() => {
+                        const activeTab = document.querySelector('.rescue-tab.active');
+                        if (activeTab) {
+                            const id = activeTab.getAttribute('data-tab');
+                            if (id === 'report') initRescueMap();
+                            else if (id === 'radar') initRadarMap();
+                        }
+                    }, 100);
+                }
+            });
+        });
+
+        // Forzar inicialización si ya estamos en la pantalla (útil para recargas)
+        if (Router.activeScreen === 'rescue') {
+            setTimeout(initRescueMap, 300);
+        }
+
+        // Botones de acción SOS
+        const submitBtn = document.getElementById('btn-submit-rescue');
+        if (submitBtn) submitBtn.onclick = handleRescueSubmit;
+
+        const locateBtn = document.getElementById('btn-locate-me');
+        if (locateBtn) locateBtn.onclick = handleLocateMe;
+
+        /* --- VET AI LOGIC --- */
+        window.sendVetMessage = async (predefinedText) => {
+            const input = document.getElementById('vet-input');
+            const text = predefinedText || input.value.trim();
+            if (!text) return;
+
+            const chatContainer = document.getElementById('vet-ai-chat');
+
+            // Añadir mensaje del usuario
+            const userBubble = document.createElement('div');
+            userBubble.className = 'chat-bubble user';
+            userBubble.innerText = text;
+            chatContainer.appendChild(userBubble);
+
+            if (!predefinedText) input.value = '';
             chatContainer.scrollTop = chatContainer.scrollHeight;
 
-        } catch (error) {
-            console.error("Error en UI Vet:", error);
-            const typingIndicator = document.getElementById('ai-typing-indicator');
-            if (typingIndicator) typingIndicator.remove();
+            // Simular "IA escribiendo..." (Animación de carga real)
+            const typing = document.createElement('div');
+            typing.className = 'chat-bubble other';
+            typing.id = 'ai-typing-indicator';
+            typing.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Dra. Alma (v6.0) está escribiendo...';
+            chatContainer.appendChild(typing);
+            chatContainer.appendChild(typing);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
 
-            const errReply = document.createElement('div');
-            errReply.className = 'chat-bubble other error';
-            errReply.innerText = "Error de conexión. Inténtalo de nuevo.";
-            chatContainer.appendChild(errReply);
+            try {
+                // Llamada REAL a la IA
+                const aiResponseHtml = await getVetResponse(text);
+
+                // Eliminar indicador de carga
+                const typingIndicator = document.getElementById('ai-typing-indicator');
+                if (typingIndicator) typingIndicator.remove();
+
+                // Renderizar respuesta
+                const reply = document.createElement('div');
+                reply.className = 'chat-bubble other';
+                reply.innerHTML = aiResponseHtml;
+                chatContainer.appendChild(reply);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+
+            } catch (error) {
+                console.error("Error en UI Vet:", error);
+                const typingIndicator = document.getElementById('ai-typing-indicator');
+                if (typingIndicator) typingIndicator.remove();
+
+                const errReply = document.createElement('div');
+                errReply.className = 'chat-bubble other error';
+                errReply.innerText = "Error de conexión. Inténtalo de nuevo.";
+                chatContainer.appendChild(errReply);
+            }
+        };
+
+
+        const hf = document.getElementById('home-featured-list');
+        if (hf) {
+            hf.innerHTML = ''; // Limpiar placeholders
+            animals.slice(0, 2).forEach(a => hf.appendChild(createAnimalCard(a)));
+        }
+
+        const cf = document.getElementById('full-catalog-list');
+        if (cf) {
+            cf.innerHTML = '';
+            animals.forEach(a => cf.appendChild(createAnimalCard(a)));
+        }
+
+        // Social Hub init (if needed on load)
+        if (window.switchSocialTab) window.switchSocialTab('heroes');
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+
+    // --- SOCIAL HUB LOGIC ---
+
+    /* --- SOCIAL HUB ENGINE --- */
+
+    window.switchSocialTab = (tabId) => {
+        // 1. Update Tab UI (New Selector for Explicit Tabs)
+        document.querySelectorAll('.social-tab-new').forEach(t => {
+            t.style.background = '#222';
+            t.style.color = 'gray';
+            t.classList.remove('active');
+        });
+
+        const activeBtn = Array.from(document.querySelectorAll('.social-tab-new')).find(btn => btn.innerText.toLowerCase().includes(tabId.substring(0, 4)));
+        if (activeBtn) {
+            activeBtn.style.background = '#0a8e69'; // High contrast
+            activeBtn.style.color = 'white';
+            activeBtn.classList.add('active');
+        }
+
+        // 2. Render Content
+        const container = document.getElementById('social-content');
+        if (!container) return;
+
+        if (tabId === 'heroes') {
+            renderHeroesFeed(container);
+        } else if (tabId === 'missions') {
+            renderMissions(container);
+        } else if (tabId === 'chat') {
+            renderChat(container, 'general');
+        } else if (tabId === 'success') {
+            renderSuccessStories(container);
         }
     };
 
+    const successStories = [
+        {
+            id: 1,
+            name: 'Baltasar',
+            breed: 'Mestizo de Vida',
+            // Before: Sad, street, cold
+            beforeImg: 'https://images.unsplash.com/photo-1529429617124-95b109e86bb8?q=80&w=1000&auto=format&fit=crop',
+            // After: Happy, bed, home
+            afterImg: 'https://images.unsplash.com/photo-1601979031925-424e53b6caaa?q=80&w=1000&auto=format&fit=crop',
+            story: 'Lo encontramos ovillado bajo la lluvia, invisible para el mundo. Tenía miedo hasta de comer. Hoy, Baltasar no solo tiene una cama caliente, tiene una familia que le lee cuentos antes de dormir. Su cola no ha parado de moverse desde que cruzó ese umbral.'
+        },
+        {
+            id: 2,
+            name: 'Luna y Sol',
+            breed: 'Hermanos Inseparables',
+            // Before: Dirty, scared kitten
+            beforeImg: 'https://images.unsplash.com/photo-1513245543132-31f507417b26?q=80&w=1000&auto=format&fit=crop',
+            // After: Clean, hugging, sleeping
+            afterImg: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?q=80&w=1000&auto=format&fit=crop',
+            story: 'Sobrevivieron al invierno dándose calor mutuamente entre cartones. Prometimos no separarlos nunca. Ahora comparten el sofá más cómodo de la ciudad y han descubierto que las ventanas son en realidad televisiones de pájaros.'
+        }
+    ];
 
-    const hf = document.getElementById('home-featured-list');
-    if (hf) {
-        hf.innerHTML = ''; // Limpiar placeholders
-        animals.slice(0, 2).forEach(a => hf.appendChild(createAnimalCard(a)));
-    }
+    function renderSuccessStories(container) {
+        container.innerHTML = '<div style="padding: 20px;"></div>';
+        const list = container.querySelector('div');
 
-    const cf = document.getElementById('full-catalog-list');
-    if (cf) {
-        cf.innerHTML = '';
-        animals.forEach(a => cf.appendChild(createAnimalCard(a)));
-    }
-
-    // Social Hub init (if needed on load)
-    if (window.switchSocialTab) window.switchSocialTab('heroes');
-}
-
-document.addEventListener('DOMContentLoaded', init);
-
-// --- SOCIAL HUB LOGIC ---
-
-/* --- SOCIAL HUB ENGINE --- */
-
-window.switchSocialTab = (tabId) => {
-    // 1. Update Tab UI (New Selector for Explicit Tabs)
-    document.querySelectorAll('.social-tab-new').forEach(t => {
-        t.style.background = '#222';
-        t.style.color = 'gray';
-        t.classList.remove('active');
-    });
-
-    const activeBtn = Array.from(document.querySelectorAll('.social-tab-new')).find(btn => btn.innerText.toLowerCase().includes(tabId.substring(0, 4)));
-    if (activeBtn) {
-        activeBtn.style.background = '#0a8e69'; // High contrast
-        activeBtn.style.color = 'white';
-        activeBtn.classList.add('active');
-    }
-
-    // 2. Render Content
-    const container = document.getElementById('social-content');
-    if (!container) return;
-
-    if (tabId === 'heroes') {
-        renderHeroesFeed(container);
-    } else if (tabId === 'missions') {
-        renderMissions(container);
-    } else if (tabId === 'chat') {
-        renderChat(container, 'general');
-    } else if (tabId === 'success') {
-        renderSuccessStories(container);
-    }
-};
-
-const successStories = [
-    {
-        id: 1,
-        name: 'Baltasar',
-        breed: 'Mestizo de Vida',
-        // Before: Sad, street, cold
-        beforeImg: 'https://images.unsplash.com/photo-1529429617124-95b109e86bb8?q=80&w=1000&auto=format&fit=crop',
-        // After: Happy, bed, home
-        afterImg: 'https://images.unsplash.com/photo-1601979031925-424e53b6caaa?q=80&w=1000&auto=format&fit=crop',
-        story: 'Lo encontramos ovillado bajo la lluvia, invisible para el mundo. Tenía miedo hasta de comer. Hoy, Baltasar no solo tiene una cama caliente, tiene una familia que le lee cuentos antes de dormir. Su cola no ha parado de moverse desde que cruzó ese umbral.'
-    },
-    {
-        id: 2,
-        name: 'Luna y Sol',
-        breed: 'Hermanos Inseparables',
-        // Before: Dirty, scared kitten
-        beforeImg: 'https://images.unsplash.com/photo-1513245543132-31f507417b26?q=80&w=1000&auto=format&fit=crop',
-        // After: Clean, hugging, sleeping
-        afterImg: 'https://images.unsplash.com/photo-1574158622682-e40e69881006?q=80&w=1000&auto=format&fit=crop',
-        story: 'Sobrevivieron al invierno dándose calor mutuamente entre cartones. Prometimos no separarlos nunca. Ahora comparten el sofá más cómodo de la ciudad y han descubierto que las ventanas son en realidad televisiones de pájaros.'
-    }
-];
-
-function renderSuccessStories(container) {
-    container.innerHTML = '<div style="padding: 20px;"></div>';
-    const list = container.querySelector('div');
-
-    successStories.forEach(s => {
-        const card = document.createElement('div');
-        card.className = 'story-card';
-        card.innerHTML = `
+        successStories.forEach(s => {
+            const card = document.createElement('div');
+            card.className = 'story-card';
+            card.innerHTML = `
             <div class="story-header">
                 <div>
                     <h4 style="margin:0; font-size:16px;">${s.name}</h4>
@@ -1411,14 +1413,14 @@ function renderSuccessStories(container) {
                 <p style="font-size:14px; line-height:1.6; color:#e0e0e0; font-weight:400; margin:0;">"${s.story}"</p>
             </div>
         `;
-        list.appendChild(card);
-    });
-}
+            list.appendChild(card);
+        });
+    }
 
 
 
-function renderHeroesFeed(container) {
-    const leaderboardHTML = `
+    function renderHeroesFeed(container) {
+        const leaderboardHTML = `
         <div class="leaderboard-container">
             <div class="leader-profile">
                 <div class="leader-rank" style="background:silver;">2</div>
@@ -1441,14 +1443,14 @@ function renderHeroesFeed(container) {
         </div>
     `;
 
-    const events = [
-        { user: 'María G.', action: 'Donó 15€ para Rex', time: 'Hace 2 min', icon: 'fa-heart', color: '#ff3b30', img: 'https://images.unsplash.com/photo-1546182990-dffeafbe841d?q=80&w=200&auto=format&fit=crop' },
-        { user: 'Carlos R.', action: 'Adoptó a Luna', time: 'Hace 1 hora', icon: 'fa-house', color: '#10fbba', img: 'https://images.unsplash.com/photo-1474511320723-9a56873867b5?q=80&w=200&auto=format&fit=crop' },
-        { user: 'Ana P.', action: 'Completó misión: Transporte', time: 'Hace 3 horas', icon: 'fa-car', color: '#FFD700', img: 'https://images.unsplash.com/photo-1533738363-b7f9aef128ce?q=80&w=200&auto=format&fit=crop' },
-        { user: 'Roberto', action: 'Nuevo Padrino Elite', time: 'Hace 5 horas', icon: 'fa-medal', color: '#bf5af2', img: 'https://images.unsplash.com/photo-1579313262691-e490586e344e?q=80&w=200&auto=format&fit=crop' }
-    ];
+        const events = [
+            { user: 'María G.', action: 'Donó 15€ para Rex', time: 'Hace 2 min', icon: 'fa-heart', color: '#ff3b30', img: 'https://images.unsplash.com/photo-1546182990-dffeafbe841d?q=80&w=200&auto=format&fit=crop' },
+            { user: 'Carlos R.', action: 'Adoptó a Luna', time: 'Hace 1 hora', icon: 'fa-house', color: '#10fbba', img: 'https://images.unsplash.com/photo-1474511320723-9a56873867b5?q=80&w=200&auto=format&fit=crop' },
+            { user: 'Ana P.', action: 'Completó misión: Transporte', time: 'Hace 3 horas', icon: 'fa-car', color: '#FFD700', img: 'https://images.unsplash.com/photo-1533738363-b7f9aef128ce?q=80&w=200&auto=format&fit=crop' },
+            { user: 'Roberto', action: 'Nuevo Padrino Elite', time: 'Hace 5 horas', icon: 'fa-medal', color: '#bf5af2', img: 'https://images.unsplash.com/photo-1579313262691-e490586e344e?q=80&w=200&auto=format&fit=crop' }
+        ];
 
-    container.innerHTML = leaderboardHTML + '<h4 style="margin: 0 0 15px 5px; font-size:14px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Actividad Reciente</h4>' + events.map(e => `
+        container.innerHTML = leaderboardHTML + '<h4 style="margin: 0 0 15px 5px; font-size:14px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Actividad Reciente</h4>' + events.map(e => `
         <div class="feed-card">
             <img src="${e.img}" class="hero-avatar" alt="Avatar" style="object-fit:cover;" onerror="this.src='https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=200&auto=format&fit=crop'">
             <div style="flex:1;">
@@ -1463,16 +1465,16 @@ function renderHeroesFeed(container) {
             </div>
         </div>
     `).join('') + '<div style="text-align:center; padding:20px;"><small style="color:var(--text-dim);">Estás al día</small></div>';
-}
+    }
 
-function renderMissions(container) {
-    const missions = [
-        { type: 'TRANSPORTE', title: 'Llevar a Toby al Vet', time: 'Hoy, 17:00', loc: 'Centro -> Clínica Sur', xp: 50, icon: 'fa-car' },
-        { type: 'ACOGIDA', title: 'Casa temporal para gatitos', time: 'Urgente (3 días)', loc: 'Madrid Centro', xp: 150, icon: 'fa-house-chimney' },
-        { type: 'EVENTO', title: 'Feria de Adopción', time: 'Sábado, 10:00', loc: 'Parque del Retiro', xp: 100, icon: 'fa-tent' }
-    ];
+    function renderMissions(container) {
+        const missions = [
+            { type: 'TRANSPORTE', title: 'Llevar a Toby al Vet', time: 'Hoy, 17:00', loc: 'Centro -> Clínica Sur', xp: 50, icon: 'fa-car' },
+            { type: 'ACOGIDA', title: 'Casa temporal para gatitos', time: 'Urgente (3 días)', loc: 'Madrid Centro', xp: 150, icon: 'fa-house-chimney' },
+            { type: 'EVENTO', title: 'Feria de Adopción', time: 'Sábado, 10:00', loc: 'Parque del Retiro', xp: 100, icon: 'fa-tent' }
+        ];
 
-    container.innerHTML = `
+        container.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
             <h3 style="font-size:20px; font-weight:800;">Misiones Activas</h3>
             <span class="badge-elite" style="background:rgba(255,255,255,0.1); color:white;">Tu Nivel: 3</span>
@@ -1493,58 +1495,58 @@ function renderMissions(container) {
             </div>
         `).join('')}
     `;
-}
+    }
 
-window.socialMessages = window.socialMessages || {
-    general: [
-        { user: 'Elena R.', text: '¿Alguien sabe si el refugio necesita mantas ahora?', time: '10:30', avatar: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=200&auto=format&fit=crop' },
-        { user: 'Juan P.', text: 'Sí, Elena! Justo puse una alerta de misión', time: '10:32', avatar: 'https://images.unsplash.com/photo-1534251369789-5067c8b8dc32?q=80&w=200&auto=format&fit=crop', isMe: true },
-        { user: 'Sofía L.', text: 'Yo puedo llevar algunas mañana por la tarde.', time: '10:35', avatar: 'https://images.unsplash.com/photo-1437622368342-7a3d73a34c8f?q=80&w=200&auto=format&fit=crop' }
-    ],
-    emergency: [
-        { user: 'Admin', text: '⚠️ Aviso: Gato atrapado en Calle Mayor 4. Se necesita escalera.', time: '09:15', avatar: 'https://images.unsplash.com/photo-1504208434309-cb69f4fe52b0?q=80&w=200&auto=format&fit=crop' },
-        { user: 'Carlos Bombero', text: 'Voy de camino con equipo.', time: '09:20', avatar: 'https://images.unsplash.com/photo-1616198906103-e8473de0e359?q=80&w=200&auto=format&fit=crop' }
-    ],
-    adoptions: [
-        { user: 'Ana', text: '¡Mirad qué feliz está Rex en su nueva casa!', time: 'Ayer', avatar: 'https://images.unsplash.com/photo-1526336024174-e58f5cdd8e13?q=80&w=200&auto=format&fit=crop' }
-    ]
-};
-
-window.sendSocialMessage = (channel) => {
-    const input = document.getElementById('social-chat-input');
-    if (!input || !input.value.trim()) return;
-
-    const msg = {
-        user: Auth.user ? Auth.user.name : 'Invitado',
-        text: input.value.trim(),
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        avatar: Auth.user ? Auth.user.avatar : 'https://images.unsplash.com/photo-1534251369789-5067c8b8dc32?q=80&w=200',
-        isMe: true
+    window.socialMessages = window.socialMessages || {
+        general: [
+            { user: 'Elena R.', text: '¿Alguien sabe si el refugio necesita mantas ahora?', time: '10:30', avatar: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=200&auto=format&fit=crop' },
+            { user: 'Juan P.', text: 'Sí, Elena! Justo puse una alerta de misión', time: '10:32', avatar: 'https://images.unsplash.com/photo-1534251369789-5067c8b8dc32?q=80&w=200&auto=format&fit=crop', isMe: true },
+            { user: 'Sofía L.', text: 'Yo puedo llevar algunas mañana por la tarde.', time: '10:35', avatar: 'https://images.unsplash.com/photo-1437622368342-7a3d73a34c8f?q=80&w=200&auto=format&fit=crop' }
+        ],
+        emergency: [
+            { user: 'Admin', text: '⚠️ Aviso: Gato atrapado en Calle Mayor 4. Se necesita escalera.', time: '09:15', avatar: 'https://images.unsplash.com/photo-1504208434309-cb69f4fe52b0?q=80&w=200&auto=format&fit=crop' },
+            { user: 'Carlos Bombero', text: 'Voy de camino con equipo.', time: '09:20', avatar: 'https://images.unsplash.com/photo-1616198906103-e8473de0e359?q=80&w=200&auto=format&fit=crop' }
+        ],
+        adoptions: [
+            { user: 'Ana', text: '¡Mirad qué feliz está Rex en su nueva casa!', time: 'Ayer', avatar: 'https://images.unsplash.com/photo-1526336024174-e58f5cdd8e13?q=80&w=200&auto=format&fit=crop' }
+        ]
     };
 
-    window.socialMessages[channel].push(msg);
-    renderChat(document.getElementById('social-content'), channel);
-};
+    window.sendSocialMessage = (channel) => {
+        const input = document.getElementById('social-chat-input');
+        if (!input || !input.value.trim()) return;
 
-function renderChat(container, channel = 'general') {
-    // 1. Storage check
-    if (!window.socialMessages[channel]) window.socialMessages[channel] = [];
-    const messages = window.socialMessages[channel];
+        const msg = {
+            user: Auth.user ? Auth.user.name : 'Invitado',
+            text: input.value.trim(),
+            time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            avatar: Auth.user ? Auth.user.avatar : 'https://images.unsplash.com/photo-1534251369789-5067c8b8dc32?q=80&w=200',
+            isMe: true
+        };
 
-    // Channels UI
-    const channels = [
-        { id: 'general', name: '# General' },
-        { id: 'emergency', name: '🚨 Emergencias' },
-        { id: 'adoptions', name: '🏠 Adopciones' }
-    ];
+        window.socialMessages[channel].push(msg);
+        renderChat(document.getElementById('social-content'), channel);
+    };
 
-    const channelsHTML = `
+    function renderChat(container, channel = 'general') {
+        // 1. Storage check
+        if (!window.socialMessages[channel]) window.socialMessages[channel] = [];
+        const messages = window.socialMessages[channel];
+
+        // Channels UI
+        const channels = [
+            { id: 'general', name: '# General' },
+            { id: 'emergency', name: '🚨 Emergencias' },
+            { id: 'adoptions', name: '🏠 Adopciones' }
+        ];
+
+        const channelsHTML = `
         <div class="channel-selector">
             ${channels.map(c => `<div class="channel-pill ${c.id === channel ? 'active' : ''}" onclick="window.renderChat(document.getElementById('social-content'), '${c.id}')">${c.name}</div>`).join('')}
         </div>
     `;
 
-    container.innerHTML = `
+        container.innerHTML = `
         <div style="height: 100%; display: flex; flex-direction: column;">
             ${channelsHTML}
             <div id="community-chat-messages" style="flex: 1; overflow-y:auto; display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; padding-bottom:10px; max-height: 400px;">
@@ -1573,42 +1575,42 @@ function renderChat(container, channel = 'general') {
         </div>
     `;
 
-    // Auto-scroll
+        // Auto-scroll
+        setTimeout(() => {
+            const chatBox = document.getElementById('community-chat-messages');
+            if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+        }, 50);
+
+        // Quick Fix: Expose helper for onclick
+        window.renderChat = renderChat;
+
+        // Quick Fix: Expose helper for onclick
+        window.renderChat = renderChat;
+    }
+
+    // Init Social Hub logic if screen is active (or call manually)
+    // We create a global init for social to be safe
+    window.initSocialHub = () => {
+        switchSocialTab('heroes');
+    };
+
+    // Add to global initialization or just run it once to populate default
     setTimeout(() => {
-        const chatBox = document.getElementById('community-chat-messages');
-        if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
-    }, 50);
-
-    // Quick Fix: Expose helper for onclick
-    window.renderChat = renderChat;
-
-    // Quick Fix: Expose helper for onclick
-    window.renderChat = renderChat;
-}
-
-// Init Social Hub logic if screen is active (or call manually)
-// We create a global init for social to be safe
-window.initSocialHub = () => {
-    switchSocialTab('heroes');
-};
-
-// Add to global initialization or just run it once to populate default
-setTimeout(() => {
-    if (window.switchSocialTab) window.switchSocialTab('heroes');
-}, 1000);
+        if (window.switchSocialTab) window.switchSocialTab('heroes');
+    }, 1000);
 
 
-window.togglePointsGuide = () => {
-    const modal = document.getElementById('info-modal');
-    if (!modal) return;
+    window.togglePointsGuide = () => {
+        const modal = document.getElementById('info-modal');
+        if (!modal) return;
 
-    const content = modal.querySelector('.info-modal-content');
+        const content = modal.querySelector('.info-modal-content');
 
-    if (modal.classList.contains('active')) {
-        modal.classList.remove('active');
-    } else {
-        // Render Content
-        content.innerHTML = `
+        if (modal.classList.contains('active')) {
+            modal.classList.remove('active');
+        } else {
+            // Render Content
+            content.innerHTML = `
             <div class="info-header">
                 <i class="fa-solid fa-shield-cat" style="font-size: 40px; color: var(--primary); margin-bottom: 10px;"></i>
                 <h3 style="margin: 0; color: white; font-size: 22px; font-weight: 900;">EL CAMINO DEL HÉROE</h3>
@@ -1657,31 +1659,31 @@ window.togglePointsGuide = () => {
             </div>
         `;
 
-    }
-};
-
-window.renderHomeNews = () => {
-    const container = document.getElementById('home-news-feed');
-    if (!container) return;
-
-    const news = [
-        {
-            tag: 'LEGISLACIÓN',
-            title: 'Nueva Ley de Bienestar: ¿Tienes ya tu seguro?',
-            desc: 'Desde septiembre es obligatorio el seguro de responsabilidad civil para todos los perros. Evita multas de hasta 500€.',
-            img: 'https://images.unsplash.com/photo-1450778869180-41d0601e046e?q=80&w=1000&auto=format&fit=crop',
-            readTime: '2 min lectura'
-        },
-        {
-            tag: 'SALUD ESTACIONAL',
-            title: 'Alerta de Calor: Cuidado con las almohadillas',
-            desc: 'El asfalto alcanza 60°C hoy. La regla de oro: si quemas tu mano en 5s, quema sus patas. Pasea por la sombra.',
-            img: 'https://images.unsplash.com/photo-1599147576161-1db5e3d74c86?q=80&w=1000&auto=format&fit=crop',
-            readTime: 'Consejo rápido'
         }
-    ];
+    };
 
-    container.innerHTML = news.map(n => `
+    window.renderHomeNews = () => {
+        const container = document.getElementById('home-news-feed');
+        if (!container) return;
+
+        const news = [
+            {
+                tag: 'LEGISLACIÓN',
+                title: 'Nueva Ley de Bienestar: ¿Tienes ya tu seguro?',
+                desc: 'Desde septiembre es obligatorio el seguro de responsabilidad civil para todos los perros. Evita multas de hasta 500€.',
+                img: 'https://images.unsplash.com/photo-1450778869180-41d0601e046e?q=80&w=1000&auto=format&fit=crop',
+                readTime: '2 min lectura'
+            },
+            {
+                tag: 'SALUD ESTACIONAL',
+                title: 'Alerta de Calor: Cuidado con las almohadillas',
+                desc: 'El asfalto alcanza 60°C hoy. La regla de oro: si quemas tu mano en 5s, quema sus patas. Pasea por la sombra.',
+                img: 'https://images.unsplash.com/photo-1599147576161-1db5e3d74c86?q=80&w=1000&auto=format&fit=crop',
+                readTime: 'Consejo rápido'
+            }
+        ];
+
+        container.innerHTML = news.map(n => `
         <div class="news-card">
             <div style="position:relative;">
                 <img src="${n.img}" class="news-image" alt="${n.title}">
@@ -1698,49 +1700,49 @@ window.renderHomeNews = () => {
             </div>
         </div>
     `).join('');
-};
+    };
 
-window.navigateToRadar = () => {
-    // 1. Go to Rescue Screen
-    const rescueLink = document.querySelector('.nav-link[data-screen="rescue"]');
-    if (rescueLink) rescueLink.click();
+    window.navigateToRadar = () => {
+        // 1. Go to Rescue Screen
+        const rescueLink = document.querySelector('.nav-link[data-screen="rescue"]');
+        if (rescueLink) rescueLink.click();
 
-    // 2. Switch to Radar Tab (with small delay to ensure DOM is ready)
-    setTimeout(() => {
-        const radarTab = document.querySelector('.rescue-tab[data-tab="radar"]');
-        if (radarTab) radarTab.click();
-    }, 100);
-};
+        // 2. Switch to Radar Tab (with small delay to ensure DOM is ready)
+        setTimeout(() => {
+            const radarTab = document.querySelector('.rescue-tab[data-tab="radar"]');
+            if (radarTab) radarTab.click();
+        }, 100);
+    };
 
-// Initialize Home News safely
-document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(renderHomeNews, 500);
-});
-// Also try immediately in case DOM is already ready (for hot reload)
-renderHomeNews();
+    // Initialize Home News safely
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(renderHomeNews, 500);
+    });
+    // Also try immediately in case DOM is already ready (for hot reload)
+    renderHomeNews();
 
-window.renderHomeNews = () => {
-    const container = document.getElementById('home-news-feed');
-    if (!container) return;
+    window.renderHomeNews = () => {
+        const container = document.getElementById('home-news-feed');
+        if (!container) return;
 
-    const news = [
-        {
-            tag: 'LEGISLACIÓN',
-            title: 'Nueva Ley de Bienestar: ¿Tienes ya tu seguro?',
-            desc: 'Desde septiembre es obligatorio el seguro de responsabilidad civil para todos los perros. Evita multas de hasta 500€.',
-            img: 'https://images.unsplash.com/photo-1450778869180-41d0601e046e?q=80&w=1000&auto=format&fit=crop',
-            readTime: '2 min lectura'
-        },
-        {
-            tag: 'SALUD ESTACIONAL',
-            title: 'Alerta de Calor: Cuidado con las almohadillas',
-            desc: 'El asfalto alcanza 60°C hoy. La regla de oro: si quemas tu mano en 5s, quema sus patas. Pasea por la sombra.',
-            img: 'https://images.unsplash.com/photo-1599147576161-1db5e3d74c86?q=80&w=1000&auto=format&fit=crop',
-            readTime: 'Consejo rápido'
-        }
-    ];
+        const news = [
+            {
+                tag: 'LEGISLACIÓN',
+                title: 'Nueva Ley de Bienestar: ¿Tienes ya tu seguro?',
+                desc: 'Desde septiembre es obligatorio el seguro de responsabilidad civil para todos los perros. Evita multas de hasta 500€.',
+                img: 'https://images.unsplash.com/photo-1450778869180-41d0601e046e?q=80&w=1000&auto=format&fit=crop',
+                readTime: '2 min lectura'
+            },
+            {
+                tag: 'SALUD ESTACIONAL',
+                title: 'Alerta de Calor: Cuidado con las almohadillas',
+                desc: 'El asfalto alcanza 60°C hoy. La regla de oro: si quemas tu mano en 5s, quema sus patas. Pasea por la sombra.',
+                img: 'https://images.unsplash.com/photo-1599147576161-1db5e3d74c86?q=80&w=1000&auto=format&fit=crop',
+                readTime: 'Consejo rápido'
+            }
+        ];
 
-    container.innerHTML = news.map(n => `
+        container.innerHTML = news.map(n => `
         <div class="news-card">
             <div style="position:relative;">
                 <img src="${n.img}" class="news-image" alt="${n.title}">
@@ -1757,86 +1759,86 @@ window.renderHomeNews = () => {
             </div>
         </div>
     `).join('');
-};
+    };
 
-window.navigateToRadar = () => {
-    // 1. Go to Rescue Screen
-    const rescueLink = document.querySelector('.nav-link[data-screen="rescue"]');
-    if (rescueLink) rescueLink.click();
+    window.navigateToRadar = () => {
+        // 1. Go to Rescue Screen
+        const rescueLink = document.querySelector('.nav-link[data-screen="rescue"]');
+        if (rescueLink) rescueLink.click();
 
-    // 2. Switch to Radar Tab (with small delay to ensure DOM is ready)
-    setTimeout(() => {
-        const radarTab = document.querySelector('.rescue-tab[data-tab="radar"]');
-        if (radarTab) radarTab.click();
-    }, 100);
-};
+        // 2. Switch to Radar Tab (with small delay to ensure DOM is ready)
+        setTimeout(() => {
+            const radarTab = document.querySelector('.rescue-tab[data-tab="radar"]');
+            if (radarTab) radarTab.click();
+        }, 100);
+    };
 
-// Initialize Home News safely
-document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(renderHomeNews, 500);
-});
-// Also try immediately in case DOM is already ready (for hot reload)
-renderHomeNews();
+    // Initialize Home News safely
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(renderHomeNews, 500);
+    });
+    // Also try immediately in case DOM is already ready (for hot reload)
+    renderHomeNews();
 
-/* --- AUTH UI HANDLERS --- */
-window.handleRegister = () => {
-    const name = document.getElementById('reg-name').value;
-    const email = document.getElementById('reg-email').value;
-    const pass = document.getElementById('reg-pass').value;
-    const spirit = document.getElementById('reg-spirit').value;
+    /* --- AUTH UI HANDLERS --- */
+    window.handleRegister = () => {
+        const name = document.getElementById('reg-name').value;
+        const email = document.getElementById('reg-email').value;
+        const pass = document.getElementById('reg-pass').value;
+        const spirit = document.getElementById('reg-spirit').value;
 
-    if (name && email && pass) {
-        Auth.register(name, email, pass, spirit);
+        if (name && email && pass) {
+            Auth.register(name, email, pass, spirit);
+            Auth.updateUI();
+        } else {
+            alert('Por favor completa todos los campos para unirte a la manada.');
+        }
+    };
+
+    window.handleLogin = () => {
+        const email = document.getElementById('login-email').value;
+        const pass = document.getElementById('login-pass').value;
+
+        if (Auth.login(email, pass)) {
+            Auth.updateUI();
+        } else {
+            alert('Credenciales incorrectas. Inténtalo de nuevo.');
+        }
+    };
+
+    window.showRegister = () => {
+        document.getElementById('screen-login').classList.remove('active');
+        document.getElementById('screen-register').classList.add('active');
+        document.querySelector('.bottom-nav').classList.add('hidden');
+    };
+
+    window.showLogin = () => {
+        document.getElementById('screen-register').classList.remove('active');
+        document.getElementById('screen-login').classList.add('active');
+        document.querySelector('.bottom-nav').classList.add('hidden');
+    };
+
+    window.selectSpirit = (type, el) => {
+        document.querySelectorAll('.animal-option').forEach(o => o.classList.remove('selected'));
+        el.classList.add('selected');
+        document.getElementById('reg-spirit').value = type;
+    };
+
+    // Initialize Auth
+    document.addEventListener('DOMContentLoaded', () => {
         Auth.updateUI();
-    } else {
-        alert('Por favor completa todos los campos para unirte a la manada.');
-    }
-};
+    });
 
-window.handleLogin = () => {
-    const email = document.getElementById('login-email').value;
-    const pass = document.getElementById('login-pass').value;
+    window.renderProfile = () => {
+        if (!Auth.user) return;
 
-    if (Auth.login(email, pass)) {
-        Auth.updateUI();
-    } else {
-        alert('Credenciales incorrectas. Inténtalo de nuevo.');
-    }
-};
+        document.querySelector('#screen-profile .user-avatar img').src = Auth.user.avatar;
+        document.querySelector('#profile-name').innerText = Auth.user.name;
+        document.querySelector('#stat-alerts').innerText = Auth.user.stats.alerts;
+        document.querySelector('#stat-sponsored').innerText = Auth.user.stats.sponsored;
 
-window.showRegister = () => {
-    document.getElementById('screen-login').classList.remove('active');
-    document.getElementById('screen-register').classList.add('active');
-    document.querySelector('.bottom-nav').classList.add('hidden');
-};
-
-window.showLogin = () => {
-    document.getElementById('screen-register').classList.remove('active');
-    document.getElementById('screen-login').classList.add('active');
-    document.querySelector('.bottom-nav').classList.add('hidden');
-};
-
-window.selectSpirit = (type, el) => {
-    document.querySelectorAll('.animal-option').forEach(o => o.classList.remove('selected'));
-    el.classList.add('selected');
-    document.getElementById('reg-spirit').value = type;
-};
-
-// Initialize Auth
-document.addEventListener('DOMContentLoaded', () => {
-    Auth.updateUI();
-});
-
-window.renderProfile = () => {
-    if (!Auth.user) return;
-
-    document.querySelector('#screen-profile .user-avatar img').src = Auth.user.avatar;
-    document.querySelector('#profile-name').innerText = Auth.user.name;
-    document.querySelector('#stat-alerts').innerText = Auth.user.stats.alerts;
-    document.querySelector('#stat-sponsored').innerText = Auth.user.stats.sponsored;
-
-    const historyContainer = document.getElementById('profile-history');
-    historyContainer.innerHTML = Auth.user.history.map(h => `
+        const historyContainer = document.getElementById('profile-history');
+        historyContainer.innerHTML = Auth.user.history.map(h => `
         <div style="background: var(--bg-surface); padding: 15px; border-radius: 12px; display: flex; align-items: center; gap: 15px;">
             <div style="background: rgba(255,255,255,0.05); width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center;">
                 <i class="fa-solid ${h.icon || 'fa-star'}"></i>
@@ -1847,128 +1849,127 @@ window.renderProfile = () => {
             </div>
         </div>
     `).join('');
-};
+    };
 
-/* --- PWA INSTALL LOGIC --- */
-const InstallApp = {
-    deferredPrompt: null,
-    isIos: /iPhone|iPad|iPod/.test(navigator.userAgent),
+    /* --- PWA INSTALL LOGIC --- */
+    const InstallApp = {
+        deferredPrompt: null,
+        isIos: /iPhone|iPad|iPod/.test(navigator.userAgent),
 
-    init() {
-        console.log('📱 PWA Init detectado');
+        init() {
+            console.log('📱 PWA Init detectado');
 
-        // Listen for install prompt (Android/Desktop)
-        window.addEventListener('beforeinstallprompt', (e) => {
-            e.preventDefault();
-            this.deferredPrompt = e;
-            console.log('✅ Install prompt captured');
-        });
+            // Listen for install prompt (Android/Desktop)
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                this.deferredPrompt = e;
+                console.log('✅ Install prompt captured');
+            });
 
-        // Check if already installed (Standalone mode)
-        const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+            // Check if already installed (Standalone mode)
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
 
-        if (isStandalone) {
-            console.log('🚀 App is in standalone mode - Skipping Landing');
-            this.skipInstall();
-        } else {
-            // Show iOS specific hints if needed
-            if (this.isIos) {
-                const helper = document.getElementById('ios-helper');
-                if (helper) helper.style.display = 'block';
+            if (isStandalone) {
+                console.log('🚀 App is in standalone mode - Skipping Landing');
+                this.skipInstall();
+            } else {
+                // Show iOS specific hints if needed
+                if (this.isIos) {
+                    const helper = document.getElementById('ios-helper');
+                    if (helper) helper.style.display = 'block';
+                }
             }
-        }
-    },
+        },
 
-    async handleInstall() {
-        if (!this.deferredPrompt) {
-            // iOS Handling check
-            if (this.isIos()) {
-                document.getElementById('ios-install-modal').classList.remove('hidden');
+        async handleInstall() {
+            if (!this.deferredPrompt) {
+                // iOS Handling check
+                if (this.isIos()) {
+                    document.getElementById('ios-install-modal').classList.remove('hidden');
+                    return;
+                }
+
+                const btn = document.getElementById('btn-install-pwa');
+                // Visual feedback for unavailable state
+                showToast("Estado: No Instalable (Verificando...)", "info");
+                if (btn) {
+                    const original = btn.innerHTML;
+                    btn.innerHTML = '<i class="fa-solid fa-ban"></i> No disponible aún';
+                    setTimeout(() => btn.innerHTML = original, 2000);
+                }
+                console.warn('Install prompt not yet available');
                 return;
             }
 
             const btn = document.getElementById('btn-install-pwa');
-            // Visual feedback for unavailable state
-            showToast("Estado: No Instalable (Verificando...)", "info");
             if (btn) {
-                const original = btn.innerHTML;
-                btn.innerHTML = '<i class="fa-solid fa-ban"></i> No disponible aún';
-                setTimeout(() => btn.innerHTML = original, 2000);
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fa-solid fa-sync fa-spin"></i> PREPARANDO...';
             }
-            console.warn('Install prompt not yet available');
-            return;
-        }
+            showToast("Iniciando instalación segura...", "info");
 
-        const btn = document.getElementById('btn-install-pwa');
-        if (btn) {
-            btn.disabled = true;
-            btn.innerHTML = '<i class="fa-solid fa-sync fa-spin"></i> PREPARANDO...';
-        }
-        showToast("Iniciando instalación segura...", "info");
+            setTimeout(() => {
+                // Android/Desktop: Trigger Prompt
+                this.deferredPrompt.prompt();
 
-        setTimeout(() => {
-            // Android/Desktop: Trigger Prompt
-            this.deferredPrompt.prompt();
+                this.deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        showToast("¡Instalación iniciada! Revisa tu pantalla de inicio.", "success");
+                        console.log('User accepted install');
+                    } else {
+                        showToast("Instalación cancelada.", "info");
+                    }
+                    this.deferredPrompt = null;
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fa-solid fa-check"></i> Instalado';
+                    }
+                });
+            }, 800);
+        },
 
-            this.deferredPrompt.userChoice.then((choiceResult) => {
-                if (choiceResult.outcome === 'accepted') {
-                    showToast("¡Instalación iniciada! Revisa tu pantalla de inicio.", "success");
-                    console.log('User accepted install');
-                } else {
-                    showToast("Instalación cancelada.", "info");
-                }
-                this.deferredPrompt = null;
-                if (btn) {
-                    btn.disabled = false;
-                    btn.innerHTML = '<i class="fa-solid fa-check"></i> Instalado';
-                }
+        closeIosModal() {
+            const modal = document.getElementById('ios-install-modal');
+            if (modal) modal.classList.add('hidden');
+        },
+
+        skipInstall() {
+            // Hide Landing, Show Auth or Home
+            const landing = document.getElementById('screen-landing');
+            if (landing) {
+                landing.classList.remove('active');
+                landing.style.display = 'none';
+            }
+
+            // Decide next screen based on Auth
+            if (Auth.user) {
+                document.getElementById('screen-home').classList.add('active');
+                document.querySelector('.bottom-nav').classList.remove('hidden');
+            } else {
+                document.getElementById('screen-register').classList.add('active');
+            }
+        };
+
+        // Initialize PWA Logic immediately
+        InstallApp.init();
+
+        // Hacer InstallApp accesible globalmente para los onclick de HTML
+        window.InstallApp = InstallApp;
+
+
+        /* --- SERVICE WORKER CONTROL (v6.0 - STABLE) --- */
+        if('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('✅ SW v6.0 Registered:', registration);
+                        // Si hay una actualización esperando, forzarla
+                        if (registration.waiting) {
+                            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                        }
+                    })
+                    .catch(error => {
+                        console.log('❌ SW Registration failed:', error);
+                    });
             });
-        }, 800);
-    },
-
-    closeIosModal() {
-        const modal = document.getElementById('ios-install-modal');
-        if (modal) modal.classList.add('hidden');
-    },
-
-    skipInstall() {
-        // Hide Landing, Show Auth or Home
-        const landing = document.getElementById('screen-landing');
-        if (landing) {
-            landing.classList.remove('active');
-            landing.style.display = 'none';
         }
-
-        // Decide next screen based on Auth
-        if (Auth.user) {
-            document.getElementById('screen-home').classList.add('active');
-            document.querySelector('.bottom-nav').classList.remove('hidden');
-        } else {
-            document.getElementById('screen-register').classList.add('active');
-        }
-    }
-};
-
-// Initialize PWA Logic immediately
-InstallApp.init();
-
-// Hacer InstallApp accesible globalmente para los onclick de HTML
-window.InstallApp = InstallApp;
-
-
-/* --- SERVICE WORKER CONTROL (v5.2 - PWA Fix) --- */
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-            .then(registration => {
-                console.log('SW v5.4 Registered: ', registration);
-                // Forzar actualización si hay uno nuevo esperando
-                if (registration.waiting) {
-                    registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-                }
-            })
-            .catch(registrationError => {
-                console.log('SW Registration failed: ', registrationError);
-            });
-    });
-}

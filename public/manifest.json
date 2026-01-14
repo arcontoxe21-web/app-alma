@@ -1,12 +1,21 @@
 {
     "name": "Alma Elite - Refugio Noir",
     "short_name": "Alma Elite",
+    "description": "La app de rescate y adopción de animales. Únete a la manada digital.",
     "start_url": "./?source=pwa",
     "display": "standalone",
     "background_color": "#000000",
     "theme_color": "#000000",
     "orientation": "portrait-primary",
     "scope": "./",
+    "id": "/app-alma/",
+    "categories": [
+        "lifestyle",
+        "social"
+    ],
+    "lang": "es",
+    "dir": "ltr",
+    "prefer_related_applications": false,
     "icons": [
         {
             "src": "icons/icon-192.png",
@@ -31,6 +40,15 @@
             "type": "image/png",
             "sizes": "512x512",
             "purpose": "maskable"
+        }
+    ],
+    "screenshots": [
+        {
+            "src": "icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "form_factor": "narrow",
+            "label": "Pantalla principal de Alma Elite"
         }
     ]
 }

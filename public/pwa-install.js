@@ -1,5 +1,5 @@
 /**
- * PWA Install Manager v2.0
+ * PWA Install Manager v3.0
  * Sistema de instalación PWA independiente y robusto
  * Funciona en Android (Chrome), iOS (Safari) y Desktop
  */
@@ -12,7 +12,9 @@
         deferredPrompt: null,
         isInstalled: false,
         platform: 'unknown',
-        debug: true
+        browser: 'unknown',
+        debug: true,
+        promptReady: false
     };
 
     // Utilidad de logging
@@ -24,24 +26,38 @@
         else console.log(prefix, message);
     }
 
-    // Detectar plataforma
+    // Detectar plataforma y navegador
     function detectPlatform() {
         const ua = navigator.userAgent || navigator.vendor || window.opera;
 
+        // Detectar iOS
         if (/iPad|iPhone|iPod/.test(ua) && !window.MSStream) {
             window.PWAInstall.platform = 'ios';
-            log('Plataforma detectada: iOS');
+            window.PWAInstall.browser = /CriOS/.test(ua) ? 'chrome' : (/FxiOS/.test(ua) ? 'firefox' : 'safari');
+            log('Plataforma: iOS, Navegador: ' + window.PWAInstall.browser);
             return 'ios';
         }
 
+        // Detectar Android
         if (/android/i.test(ua)) {
             window.PWAInstall.platform = 'android';
-            log('Plataforma detectada: Android');
+            // Detectar navegador en Android
+            if (/Chrome\//.test(ua) && !/Edge|Edg|OPR|Opera/.test(ua)) {
+                window.PWAInstall.browser = 'chrome';
+            } else if (/Firefox/.test(ua)) {
+                window.PWAInstall.browser = 'firefox';
+            } else if (/SamsungBrowser/.test(ua)) {
+                window.PWAInstall.browser = 'samsung';
+            } else {
+                window.PWAInstall.browser = 'other';
+            }
+            log('Plataforma: Android, Navegador: ' + window.PWAInstall.browser);
             return 'android';
         }
 
         window.PWAInstall.platform = 'desktop';
-        log('Plataforma detectada: Desktop');
+        window.PWAInstall.browser = 'desktop';
+        log('Plataforma: Desktop');
         return 'desktop';
     }
 
@@ -63,7 +79,7 @@
         if (!container) {
             container = document.createElement('div');
             container.className = 'toast-container';
-            container.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;gap:10px;';
+            container.style.cssText = 'position:fixed;top:60px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;gap:10px;width:90%;max-width:350px;';
             document.body.appendChild(container);
         }
 
@@ -76,7 +92,7 @@
             font-size: 14px;
             font-weight: 600;
             box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-            animation: slideIn 0.3s ease;
+            text-align: center;
         `;
         toast.textContent = message;
         container.appendChild(toast);
@@ -101,9 +117,9 @@
                 disabled: false
             },
             'waiting': {
-                html: '<i class="fa-solid fa-hourglass-half"></i> ESPERANDO...',
-                bg: '#444',
-                disabled: true
+                html: '<i class="fa-solid fa-download"></i> INSTALAR APP',
+                bg: 'linear-gradient(135deg, #10fbba, #0a8e69)',
+                disabled: false
             },
             'installing': {
                 html: '<i class="fa-solid fa-spinner fa-spin"></i> INSTALANDO...',
@@ -120,9 +136,9 @@
                 bg: 'linear-gradient(135deg, #10fbba, #0a8e69)',
                 disabled: false
             },
-            'unavailable': {
-                html: '<i class="fa-solid fa-globe"></i> ABRIR EN NAVEGADOR',
-                bg: '#666',
+            'android-manual': {
+                html: '<i class="fa-solid fa-ellipsis-vertical"></i> VER INSTRUCCIONES',
+                bg: 'linear-gradient(135deg, #10fbba, #0a8e69)',
                 disabled: false
             }
         };
@@ -133,6 +149,68 @@
         btn.disabled = config.disabled;
 
         log('Botón actualizado a estado: ' + state);
+    }
+
+    // Crear modal de Android si no existe
+    function createAndroidModal() {
+        if (document.getElementById('android-install-modal')) return;
+
+        const modal = document.createElement('div');
+        modal.id = 'android-install-modal';
+        modal.className = 'modal hidden';
+        modal.style.cssText = `
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 10000;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+        `;
+        modal.innerHTML = `
+            <div style="background: linear-gradient(145deg, #1a1a1a, #0d0d0d); border-radius: 24px; padding: 30px; max-width: 340px; width: 100%; border: 1px solid rgba(16, 251, 186, 0.2); box-shadow: 0 20px 60px rgba(0,0,0,0.5);">
+                <span onclick="PWAInstall.closeAndroidModal()" style="position: absolute; top: 15px; right: 20px; font-size: 28px; color: #888; cursor: pointer;">&times;</span>
+                <div style="text-align: center; margin-bottom: 20px;">
+                    <i class="fa-brands fa-android" style="font-size: 48px; color: #3DDC84;"></i>
+                </div>
+                <h3 style="color: white; font-size: 20px; font-weight: 800; text-align: center; margin-bottom: 15px;">Instalar en Android</h3>
+                <p style="color: #888; font-size: 14px; text-align: center; margin-bottom: 20px;">Para instalar la app, sigue estos pasos:</p>
+                <ol style="color: #ccc; font-size: 14px; line-height: 2; padding-left: 20px; margin-bottom: 25px;">
+                    <li>Toca el menú <strong style="color: white;">⋮</strong> (tres puntos arriba a la derecha)</li>
+                    <li>Selecciona <strong style="color: #10fbba;">"Instalar aplicación"</strong> o <strong style="color: #10fbba;">"Añadir a pantalla de inicio"</strong></li>
+                    <li>Confirma tocando <strong style="color: white;">Instalar</strong></li>
+                </ol>
+                <button onclick="PWAInstall.closeAndroidModal()" style="width: 100%; padding: 16px; background: linear-gradient(135deg, #10fbba, #0a8e69); border: none; border-radius: 14px; color: #000; font-size: 16px; font-weight: 800; cursor: pointer;">
+                    ENTENDIDO
+                </button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+
+    // Mostrar modal de Android
+    function showAndroidModal() {
+        createAndroidModal();
+        const modal = document.getElementById('android-install-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            modal.style.display = 'flex';
+            log('Modal Android mostrado');
+        }
+    }
+
+    // Cerrar modal de Android
+    function closeAndroidModal() {
+        const modal = document.getElementById('android-install-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            modal.style.display = 'none';
+        }
     }
 
     // Mostrar modal de iOS
@@ -173,53 +251,66 @@
     // Manejar click en botón de instalación
     function handleInstallClick() {
         log('Click en botón de instalación');
+        log('Prompt disponible: ' + !!window.PWAInstall.deferredPrompt);
+        log('Plataforma: ' + window.PWAInstall.platform);
+        log('Navegador: ' + window.PWAInstall.browser);
+
         const platform = window.PWAInstall.platform;
 
-        // iOS: Mostrar instrucciones manuales
+        // iOS: Siempre mostrar instrucciones manuales
         if (platform === 'ios') {
             log('Mostrando instrucciones para iOS');
             showIOSModal();
             return;
         }
 
-        // Android/Desktop: Usar el prompt nativo
+        // Android/Desktop: Intentar usar el prompt nativo
         if (window.PWAInstall.deferredPrompt) {
             log('Mostrando prompt de instalación nativo');
             updateButton('installing');
 
-            const prompt = window.PWAInstall.deferredPrompt;
-            prompt.prompt();
+            try {
+                const prompt = window.PWAInstall.deferredPrompt;
+                prompt.prompt();
 
-            prompt.userChoice.then((choiceResult) => {
-                if (choiceResult.outcome === 'accepted') {
-                    log('Usuario aceptó la instalación');
-                    showToast('¡Instalación iniciada! Revisa tu pantalla de inicio.', 'success');
-                    updateButton('installed');
-                } else {
-                    log('Usuario rechazó la instalación');
-                    showToast('Instalación cancelada', 'info');
+                prompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        log('Usuario aceptó la instalación');
+                        showToast('¡Instalación iniciada!', 'success');
+                        updateButton('installed');
+                    } else {
+                        log('Usuario rechazó la instalación');
+                        showToast('Instalación cancelada', 'info');
+                        updateButton('ready');
+                    }
+                    window.PWAInstall.deferredPrompt = null;
+                }).catch((err) => {
+                    log('Error en userChoice: ' + err, 'error');
                     updateButton('ready');
+                });
+            } catch (err) {
+                log('Error al mostrar prompt: ' + err, 'error');
+                // Fallback a instrucciones manuales
+                if (platform === 'android') {
+                    showAndroidModal();
                 }
-                window.PWAInstall.deferredPrompt = null;
-            }).catch((err) => {
-                log('Error en userChoice: ' + err, 'error');
-                updateButton('ready');
-            });
+            }
         } else {
-            // No hay prompt disponible
-            log('No hay prompt disponible', 'warn');
-            showToast('Instalación no disponible. Intenta recargar la página.', 'error');
+            // No hay prompt disponible - mostrar instrucciones manuales
+            log('No hay prompt disponible, mostrando instrucciones manuales', 'warn');
 
-            // Sugerir agregar manualmente
             if (platform === 'android') {
-                showToast('Usa el menú ⋮ → "Añadir a pantalla de inicio"', 'info');
+                showAndroidModal();
+            } else {
+                // Desktop sin prompt
+                showToast('Usa el menú del navegador para instalar la app', 'info');
             }
         }
     }
 
     // Inicializar sistema de instalación
     function init() {
-        log('Inicializando sistema de instalación PWA v2.0');
+        log('Inicializando sistema de instalación PWA v3.0');
 
         // 1. Detectar plataforma
         detectPlatform();
@@ -231,7 +322,19 @@
             return;
         }
 
-        // 3. Configurar el botón
+        // 3. Crear modal de Android
+        createAndroidModal();
+
+        // 4. Capturar evento beforeinstallprompt ANTES de configurar el botón
+        window.addEventListener('beforeinstallprompt', (e) => {
+            log('✅ Evento beforeinstallprompt capturado!');
+            e.preventDefault();
+            window.PWAInstall.deferredPrompt = e;
+            window.PWAInstall.promptReady = true;
+            updateButton('ready');
+        });
+
+        // 5. Configurar el botón
         const btn = document.getElementById('btn-install-pwa');
         if (btn) {
             // Remover listeners anteriores clonando el botón
@@ -248,31 +351,24 @@
                 const helper = document.getElementById('ios-helper');
                 if (helper) helper.style.display = 'block';
             } else {
+                // En Android/Desktop, mostrar el botón activo inmediatamente
+                // El prompt puede llegar después
                 updateButton('waiting');
             }
         }
 
-        // 4. Capturar evento beforeinstallprompt (Android/Desktop)
-        window.addEventListener('beforeinstallprompt', (e) => {
-            log('✅ Evento beforeinstallprompt capturado!');
-            e.preventDefault();
-            window.PWAInstall.deferredPrompt = e;
-            updateButton('ready');
-            showToast('¡App lista para instalar!', 'success');
-        });
-
-        // 5. Detectar cuando se instala
+        // 6. Detectar cuando se instala
         window.addEventListener('appinstalled', () => {
             log('✅ App instalada exitosamente');
             window.PWAInstall.isInstalled = true;
             updateButton('installed');
-            showToast('¡Alma Elite instalada! Ábrela desde tu pantalla de inicio.', 'success');
+            showToast('¡Alma Elite instalada!', 'success');
 
             // Ocultar landing después de un momento
             setTimeout(skipInstall, 2000);
         });
 
-        // 6. Configurar cierre del modal iOS
+        // 7. Configurar cierre del modal iOS
         const closeBtn = document.querySelector('#ios-install-modal .close-modal');
         if (closeBtn) {
             closeBtn.addEventListener('click', closeIOSModal);
@@ -286,6 +382,7 @@
         }
 
         log('Sistema de instalación inicializado correctamente');
+        log('Esperando evento beforeinstallprompt...');
     }
 
     // Exponer funciones globalmente
@@ -293,6 +390,7 @@
     window.PWAInstall.handleInstall = handleInstallClick;
     window.PWAInstall.skipInstall = skipInstall;
     window.PWAInstall.closeIOSModal = closeIOSModal;
+    window.PWAInstall.closeAndroidModal = closeAndroidModal;
     window.PWAInstall.showToast = showToast;
 
     // Auto-inicializar cuando el DOM esté listo

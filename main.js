@@ -1359,10 +1359,10 @@ function init() {
         const intro = "Soy la **Dra. Alma**, especialista en medicina de urgencias de la Manada.";
 
         // --- 1. DETECCIÓN DE INTENCIÓN (MEMORIA) ---
-        const confirmationKeywords = ['hecho', 'listo', 'ya está', 'ok', 'vale', 'entendido', 'si', 'sí'];
-        const curiosityKeywords = ['más', 'sigue', 'después', 'luego', 'que mas', 'qué más', 'dime más'];
+        const confirmationKeywords = ['hecho', 'listo', 'ya está', 'ya esta', 'ok', 'vale', 'entendido', 'si', 'sí', 'bien', 'ya', 'acabado', 'terminado', 'continuar', 'siguiente', 'avanzar'];
+        const curiosityKeywords = ['más', 'sigue', 'después', 'luego', 'que mas', 'qué más', 'dime más', 'y ahora', 'proximo', 'próximo'];
 
-        const isConfirmation = confirmationKeywords.some(k => q.toLowerCase() === k || q.toLowerCase().includes('ya ' + k));
+        const isConfirmation = confirmationKeywords.some(k => q.toLowerCase() === k || q.toLowerCase().includes(k)); // Más permisivo con includes
         const isCuriosity = curiosityKeywords.some(k => q.toLowerCase().includes(k));
 
         // Si hay un protocolo activo y el usuario confirma o pide más
@@ -1390,7 +1390,7 @@ function init() {
                         <div class="vet-step"><span>${window.vetContext.currentStepIndex + 1}</span> ${nextStep}</div>
                     </div>
                     <div class="vet-alert">
-                        <i class="fa-solid fa-clock"></i> No te detengas, mantén la calma. Dime <strong>"hecho"</strong> cuando lo tengas.
+                        <i class="fa-solid fa-clock"></i> No te detengas. Dime <strong>"hecho"</strong> cuando lo tengas.
                     </div>
                 `;
             } else {
@@ -1443,9 +1443,12 @@ function init() {
         // Si no hay protocolo y no detectamos nada nuevo
         if (window.vetContext.activeProtocol) {
             return `
-                <p><strong>Dra. Alma:</strong> Te escucho. Seguimos con el protocolo de <strong>${window.vetContext.activeProtocol.name}</strong>.</p>
+                <p><strong>Dra. Alma:</strong> ¿Sigues ahí?</p>
+                <p>Seguimos con el protocolo de <strong>${window.vetContext.activeProtocol.name}</strong>.</p>
                 <p>El paso actual es: <em>"${window.vetContext.activeProtocol.steps[window.vetContext.currentStepIndex]}"</em></p>
-                <p>¿Has tenido alguna dificultad o ya podemos pasar al siguiente?</p>
+                <div class="vet-alert" style="background: rgba(255,255,255,0.05); border: 1px dashed var(--text-muted);">
+                    <i class="fa-solid fa-circle-question"></i> Escribe <strong>"hecho"</strong>, <strong>"siguiente"</strong> o <strong>"ya"</strong> para avanzar.
+                </div>
             `;
         }
 

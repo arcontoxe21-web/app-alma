@@ -1270,7 +1270,7 @@ function init() {
         const typing = document.createElement('div');
         typing.className = 'chat-bubble other';
         typing.id = 'ai-typing-indicator';
-        typing.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Dra. Alma (v5.2) está escribiendo...';
+        typing.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Dra. Alma (v5.3) está escribiendo...';
         chatContainer.appendChild(typing);
         chatContainer.appendChild(typing);
         chatContainer.scrollTop = chatContainer.scrollHeight;
@@ -1879,56 +1879,51 @@ const InstallApp = {
         }
     },
 
-    handleInstall() {
-        console.log('👇 Install button clicked');
-        const btn = document.getElementById('btn-install-pwa');
-        const originalContent = btn ? btn.innerHTML : '';
-
-        if (this.isIos) {
-            // iOS: Show Instructions Modal
-            const modal = document.getElementById('ios-install-modal');
-            if (modal) {
-                modal.classList.remove('hidden');
-                modal.style.display = 'flex';
+    async install() {
+        if (!this.deferredPrompt) {
+            // iOS Handling check
+            if (this.isIos()) {
+                document.getElementById('ios-install-modal').classList.remove('hidden');
+                return;
             }
+
+            const btn = document.getElementById('btn-install-app');
+            // Visual feedback for unavailable state
+            showToast("Estado: No Instalable (Verificando...)", "info");
+            if (btn) {
+                const original = btn.innerHTML;
+                btn.innerHTML = '<i class="fa-solid fa-ban"></i> No disponible aún';
+                setTimeout(() => btn.innerHTML = original, 2000);
+            }
+            console.warn('Install prompt not yet available');
             return;
         }
 
-        if (this.deferredPrompt) {
-            // Start Feedback
-            if (btn) {
-                btn.disabled = true;
-                btn.innerHTML = '<i class="fa-solid fa-sync fa-spin"></i> PREPARANDO...';
-            }
-            showToast("Iniciando instalación segura...", "info");
-
-            setTimeout(() => {
-                // Android/Desktop: Trigger Prompt
-                this.deferredPrompt.prompt();
-
-                this.deferredPrompt.userChoice.then((choiceResult) => {
-                    if (choiceResult.outcome === 'accepted') {
-                        showToast("¡Instalación iniciada! Revisa tu pantalla de inicio.", "success");
-                        console.log('User accepted install');
-                    } else {
-                        showToast("Instalación cancelada.", "info");
-                    }
-                    this.deferredPrompt = null;
-                    if (btn) {
-                        btn.disabled = false;
-                        btn.innerHTML = originalContent;
-                    }
-                });
-            }, 800);
-        } else {
-            // Fallback improved
-            showToast("Sincronizando con el sistema... reintenta en 3 segundos.", "info");
-            if (btn) {
-                btn.classList.add('btn-loading');
-                setTimeout(() => btn.classList.remove('btn-loading'), 2000);
-            }
-            console.warn('Install prompt not yet available');
+        const btn = document.getElementById('btn-install-app');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-sync fa-spin"></i> PREPARANDO...';
         }
+        showToast("Iniciando instalación segura...", "info");
+
+        setTimeout(() => {
+            // Android/Desktop: Trigger Prompt
+            this.deferredPrompt.prompt();
+
+            this.deferredPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') {
+                    showToast("¡Instalación iniciada! Revisa tu pantalla de inicio.", "success");
+                    console.log('User accepted install');
+                } else {
+                    showToast("Instalación cancelada.", "info");
+                }
+                this.deferredPrompt = null;
+                if (btn) {
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-check"></i> Instalado';
+                }
+            });
+        }, 800);
     },
 
     closeIosModal() {
@@ -1966,7 +1961,7 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
             .then(registration => {
-                console.log('SW v5.2 Registered: ', registration);
+                console.log('SW v5.3 Registered: ', registration);
                 // Forzar actualización si hay uno nuevo esperando
                 if (registration.waiting) {
                     registration.waiting.postMessage({ type: 'SKIP_WAITING' });

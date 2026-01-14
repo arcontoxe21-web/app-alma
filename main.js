@@ -1270,7 +1270,7 @@ function init() {
         const typing = document.createElement('div');
         typing.className = 'chat-bubble other';
         typing.id = 'ai-typing-indicator';
-        typing.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Dra. Alma (v5.1) está escribiendo...';
+        typing.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Dra. Alma (v5.2) está escribiendo...';
         chatContainer.appendChild(typing);
         chatContainer.appendChild(typing);
         chatContainer.scrollTop = chatContainer.scrollHeight;
@@ -1961,22 +1961,19 @@ InstallApp.init();
 window.InstallApp = InstallApp;
 
 
-/* --- SERVICE WORKER CONTROL (v5.1) --- */
+/* --- SERVICE WORKER CONTROL (v5.2 - PWA Fix) --- */
 if ('serviceWorker' in navigator) {
-    // 1. Primero desregistramos para matar la caché v3
-    navigator.serviceWorker.getRegistrations().then(function (registrations) {
-        for (let registration of registrations) {
-            console.log('SW Desregistrado:', registration);
-            registration.unregister();
-        }
-    }).then(() => {
-        // 2. Registramos el nuevo
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register('./sw.js').then(registration => {
-                console.log('SW v5.1 Registered: ', registration);
-            }).catch(registrationError => {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(registration => {
+                console.log('SW v5.2 Registered: ', registration);
+                // Forzar actualización si hay uno nuevo esperando
+                if (registration.waiting) {
+                    registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                }
+            })
+            .catch(registrationError => {
                 console.log('SW Registration failed: ', registrationError);
             });
-        });
     });
 }

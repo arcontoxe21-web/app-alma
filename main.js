@@ -91,6 +91,8 @@ const Auth = {
     }
 };
 
+window.Auth = Auth;
+
 const animals = [
     // --- DOGS (RESCUED FROM ALMA HONDON) ---
     {

@@ -1948,28 +1948,30 @@ async function getVetAIResponse(q) {
             } else {
                 document.getElementById('screen-register').classList.add('active');
             }
-        };
-
-        // Initialize PWA Logic immediately
-        InstallApp.init();
-
-        // Hacer InstallApp accesible globalmente para los onclick de HTML
-        window.InstallApp = InstallApp;
-
-
-        /* --- SERVICE WORKER CONTROL (v6.0 - STABLE) --- */
-        if('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js')
-                    .then(registration => {
-                        console.log('✅ SW v6.0 Registered:', registration);
-                        // Si hay una actualización esperando, forzarla
-                        if (registration.waiting) {
-                            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
-                        }
-                    })
-                    .catch(error => {
-                        console.log('❌ SW Registration failed:', error);
-                    });
-            });
         }
+    };
+
+    // Initialize PWA Logic immediately
+    InstallApp.init();
+
+    // Hacer InstallApp accesible globalmente para los onclick de HTML
+    window.InstallApp = InstallApp;
+
+
+    /* --- SERVICE WORKER CONTROL (v6.0 - STABLE) --- */
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js')
+                .then(registration => {
+                    console.log('✅ SW v6.0 Registered:', registration);
+                    // Si hay una actualización esperando, forzarla
+                    if (registration.waiting) {
+                        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                    }
+                })
+                .catch(error => {
+                    console.log('❌ SW Registration failed:', error);
+                });
+        });
+    }
+}

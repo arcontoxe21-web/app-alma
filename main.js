@@ -1281,25 +1281,47 @@ function init() {
         }, 1500);
     };
 
+    window.vetContext = { activeProtocol: null, severity: null };
+
     function getVetAIResponse(q) {
-        // --- Dra. Alma: Identidad y Protocolos ---
         const intro = "Soy la **Dra. Alma**, especialista en medicina de urgencias de la Manada.";
+
+        // --- 1. DETECCIÓN DE CONTINUIDAD (MEMORIA) ---
+        const continuityKeywords = ['si', 'ya está', 'hecho', 'más', 'luego', 'sigue', 'después', 'entendido', 'ok', 'vale'];
+        const isContinuity = continuityKeywords.some(k => q.includes(k)) || q.length < 10;
+
+        if (isContinuity && window.vetContext.activeProtocol) {
+            const ctx = window.vetContext.activeProtocol;
+            return `
+                <p><strong>Dra. Alma:</strong> Te sigo, estamos en ello.</p>
+                <p>Como estamos tratando un caso de <strong>${ctx.name}</strong>, lo siguiente que debemos asegurar es:</p>
+                <div class="vet-steps">
+                    <div class="vet-step"><span>💡</span> Continúa monitorizando su respiración y color de encías. Si notas que se ponen moradas, avísame.</div>
+                    <div class="vet-step"><span>🚗</span> ¿Ya estás de camino a urgencias? El soporte profesional es vital ahora mismo.</div>
+                </div>
+                <div class="vet-alert">
+                    <i class="fa-solid fa-clock"></i> No bajes la guardia. Cada detalle cuenta.
+                </div>
+            `;
+        }
 
         const protocols = {
             respiracion: {
+                name: "Emergencia Respiratoria",
                 keywords: ['respira', 'rcp', 'parada', 'asfixia', 'ahoga'],
                 severity: "CRÍTICO",
                 advice: "Estamos ante una posible parada cardiorrespiratoria o asfixia obstructiva.",
                 steps: [
                     "**Despeja la vía**: Abre su boca con cuidado y retira cualquier objeto o exceso de saliva/vómito.",
                     "**Posición**: Túmbale sobre su lado derecho, estirando el cuello para alinear la tráquea.",
-                    "**Masaje Cardíaco**: Presiona el tórax justo tras el codo (100-120 compresiones por minuto). Ritmo: *'Stayin' Alive'*.",
+                    "**Masaje Cardíaco**: Presiona el tórax justo tras el codo (100-120 compresiones por minuto).",
                     "**Ventilación**: Si no respira, cierra su boca y sopla suavemente por su nariz cada 15 compresiones."
                 ],
                 urgent_alert: "Debes estar de camino al hospital mientras realizas estas maniobras."
             },
             toxicidad: {
-                keywords: ['tóxico', 'veneno', 'chocolate', 'comió', 'ingerido', 'pastilla', 'lejía'],
+                name: "Intoxicación Aguda",
+                keywords: ['tóxico', 'veneno', 'chocolate', 'comió', 'ingerido', 'pastilla', 'lejía', 'uvas', 'cebolla'],
                 severity: "ALTA",
                 advice: "La absorción de tóxicos puede comprometer órganos vitales en minutos.",
                 steps: [
@@ -1311,18 +1333,20 @@ function init() {
                 urgent_alert: "Acude a urgencias inmediatamente. El tiempo es el factor decisivo."
             },
             trauma: {
-                keywords: ['atropello', 'caída', 'golpe', 'cojea', 'hueso', 'sangre', 'herida'],
+                name: "Trauma / Hematoma",
+                keywords: ['atropello', 'caída', 'golpe', 'cojea', 'hueso', 'sangre', 'herida', 'fractura'],
                 severity: "MODERADA - ALTA",
                 advice: "Tras un impacto fuerte, puede haber hemorragias internas visibles o no.",
                 steps: [
                     "**Inmovilización**: Si sospechas lesión de columna, muévelo solo sobre una base rígida (tabla o cartón fuerte).",
                     "**Control de Hemorragia**: Presiona firmemente el punto de sangrado con un paño limpio. NO levantes para mirar.",
                     "**Evitar Shock**: Mantén al animal tapado para que no pierda temperatura corporal.",
-                    "**Bozal preventivo**: El dolor extremo puede provocar mordeduras incluso en los animales más dóciles."
+                    "**Bozal preventivo**: El dolor extremo puede provocar mordeduras incluso en los animales del mundo."
                 ],
                 urgent_alert: "Aunque parezca estar bien tras un golpe, las lesiones internas pueden aparecer horas después."
             },
             convulsion: {
+                name: "Crisis Convulsiva",
                 keywords: ['convulsión', 'tiembla', 'ataque', 'espuma', 'epilepsia'],
                 severity: "ALTA",
                 advice: "Una convulsión es una tormenta eléctrica cerebral. Lo más importante es protegerle de golpes.",
@@ -1335,6 +1359,7 @@ function init() {
                 urgent_alert: "Si es la primera vez que ocurre o si se repiten, es obligatoria la revisión neurológica urgente."
             },
             torsion: {
+                name: "Torsión Gástrica",
                 keywords: ['hinchada', 'barriga', 'arcadas', 'no puede vomitar', 'estómago', 'inflado'],
                 severity: "MÁXIMA PRIORIDAD",
                 advice: "Sintomatología compatible con Torsión Gástrica. Es mortal en pocas horas sin cirugía.",
@@ -1348,27 +1373,31 @@ function init() {
         };
 
         // Búsqueda de protocolo
-        let protocol = null;
+        let foundProtocol = null;
         for (const key in protocols) {
             if (protocols[key].keywords.some(k => q.includes(k))) {
-                protocol = protocols[key];
+                foundProtocol = protocols[key];
                 break;
             }
         }
 
-        if (protocol) {
+        if (foundProtocol) {
+            window.vetContext.activeProtocol = foundProtocol;
+            window.vetContext.severity = foundProtocol.severity;
+
             return `
                 <div class="vet-response-header">
-                    <span class="badg-severity ${protocol.severity.toLowerCase()}">${protocol.severity}</span>
+                    <span class="badg-severity ${foundProtocol.severity.toLowerCase()}">${foundProtocol.severity}</span>
                     <p><strong>${intro}</strong></p>
                 </div>
-                <p class="vet-advice">${protocol.advice}</p>
+                <p class="vet-advice">${foundProtocol.advice}</p>
                 <div class="vet-steps">
-                    ${protocol.steps.map((s, i) => `<div class="vet-step"><span>${i + 1}</span> ${s}</div>`).join('')}
+                    ${foundProtocol.steps.map((s, i) => `<div class="vet-step"><span>${i + 1}</span> ${s}</div>`).join('')}
                 </div>
                 <div class="vet-alert">
-                    <i class="fa-solid fa-triangle-exclamation"></i> ${protocol.urgent_alert}
+                    <i class="fa-solid fa-triangle-exclamation"></i> ${foundProtocol.urgent_alert}
                 </div>
+                <p style="font-size: 12px; margin-top: 10px; opacity: 0.8;"><em>Dime "hecho" o "¿qué más?" cuando estés listo.</em></p>
             `;
         }
 

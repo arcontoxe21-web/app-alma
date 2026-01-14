@@ -1282,31 +1282,102 @@ function init() {
     };
 
     function getVetAIResponse(q) {
-        const empathyPhrases = [
-            "Entiendo perfectamente lo que sientes ahora mismo. Respira hondo, vamos a cuidar de tu pequeño juntos.",
-            "Sé que es una situación estresante, pero mantén la calma por él/ella. Yo te guiaré paso a paso.",
-            "Lo siento mucho, ver a nuestro compañero así es muy duro. Vamos a centrarnos en ayudarle ahora mismo.",
-            "No estás solo en esto. Estoy aquí para decirte exactamente qué hacer mientras llegas al veterinario."
-        ];
-        const randomEmpathy = empathyPhrases[Math.floor(Math.random() * empathyPhrases.length)];
+        // --- Dra. Alma: Identidad y Protocolos ---
+        const intro = "Soy la **Dra. Alma**, especialista en medicina de urgencias de la Manada.";
 
-        if (q.includes('respira') || q.includes('rcp') || q.includes('muerto') || q.includes('parada')) {
-            return `${randomEmpathy}<br><br><strong>🚨 VAMOS A INTENTAR REANIMARLE:</strong><br><br>1. **Túmbale** sobre su lado derecho. Estira su cuello para que el aire pase mejor.<br>2. **Comprobación**: Abre su boca y asegúrate de que no haya nada obstruyendo.<br>3. **Compresiones**: Coloca tus manos sobre la parte más ancha del pecho (detrás del codo). Empuja con fuerza y rapidez (2 veces por segundo).<br>4. **Respiración**: Si estás solo, haz 30 compresiones y sopla suavemente 2 veces por su nariz (cerrando su boca con tu mano).<br><br><strong>Céntrate en el ritmo: 1, 2, 3... Tú puedes hacerlo. Sigue hasta que lleguéis a la clínica.</strong>`;
+        const protocols = {
+            respiracion: {
+                keywords: ['respira', 'rcp', 'parada', 'asfixia', 'ahoga'],
+                severity: "CRÍTICO",
+                advice: "Estamos ante una posible parada cardiorrespiratoria o asfixia obstructiva.",
+                steps: [
+                    "**Despeja la vía**: Abre su boca con cuidado y retira cualquier objeto o exceso de saliva/vómito.",
+                    "**Posición**: Túmbale sobre su lado derecho, estirando el cuello para alinear la tráquea.",
+                    "**Masaje Cardíaco**: Presiona el tórax justo tras el codo (100-120 compresiones por minuto). Ritmo: *'Stayin' Alive'*.",
+                    "**Ventilación**: Si no respira, cierra su boca y sopla suavemente por su nariz cada 15 compresiones."
+                ],
+                urgent_alert: "Debes estar de camino al hospital mientras realizas estas maniobras."
+            },
+            toxicidad: {
+                keywords: ['tóxico', 'veneno', 'chocolate', 'comió', 'ingerido', 'pastilla', 'lejía'],
+                severity: "ALTA",
+                advice: "La absorción de tóxicos puede comprometer órganos vitales en minutos.",
+                steps: [
+                    "**Identificación**: Localiza el envoltorio o sustancia. Es vital para el antídoto.",
+                    "**No inducir vómito**: Si ha ingerido químicos corrosivos o si está inconsciente, el vómito empeorará el daño.",
+                    "**Carbón Activo**: Si lo tienes a mano y ha pasado menos de 30 min, puede ayudar a frenar la absorción.",
+                    "**Agua**: No le fuerces a beber, podrías causar una neumonía por aspiración."
+                ],
+                urgent_alert: "Acude a urgencias inmediatamente. El tiempo es el factor decisivo."
+            },
+            trauma: {
+                keywords: ['atropello', 'caída', 'golpe', 'cojea', 'hueso', 'sangre', 'herida'],
+                severity: "MODERADA - ALTA",
+                advice: "Tras un impacto fuerte, puede haber hemorragias internas visibles o no.",
+                steps: [
+                    "**Inmovilización**: Si sospechas lesión de columna, muévelo solo sobre una base rígida (tabla o cartón fuerte).",
+                    "**Control de Hemorragia**: Presiona firmemente el punto de sangrado con un paño limpio. NO levantes para mirar.",
+                    "**Evitar Shock**: Mantén al animal tapado para que no pierda temperatura corporal.",
+                    "**Bozal preventivo**: El dolor extremo puede provocar mordeduras incluso en los animales más dóciles."
+                ],
+                urgent_alert: "Aunque parezca estar bien tras un golpe, las lesiones internas pueden aparecer horas después."
+            },
+            convulsion: {
+                keywords: ['convulsión', 'tiembla', 'ataque', 'espuma', 'epilepsia'],
+                severity: "ALTA",
+                advice: "Una convulsión es una tormenta eléctrica cerebral. Lo más importante es protegerle de golpes.",
+                steps: [
+                    "**Zona segura**: Aparta muebles u objetos con los que pueda golpearse. No intentes sujetarle.",
+                    "**Boca**: NUNCA metas las manos en su boca ni intentes sacarle la lengua; no se la va a tragar.",
+                    "**Luz y Sonido**: Apaga luces potentes y mantén silencio absoluto para bajar el estímulo cerebral.",
+                    "**Cronometra**: Si el ataque dura más de 5 minutos, es un estado de estatus epiléptico crítico."
+                ],
+                urgent_alert: "Si es la primera vez que ocurre o si se repiten, es obligatoria la revisión neurológica urgente."
+            },
+            torsion: {
+                keywords: ['hinchada', 'barriga', 'arcadas', 'no puede vomitar', 'estómago', 'inflado'],
+                severity: "MÁXIMA PRIORIDAD",
+                advice: "Sintomatología compatible con Torsión Gástrica. Es mortal en pocas horas sin cirugía.",
+                steps: [
+                    "**Identifica**: Abdomen tenso como un tambor, intentos de vómito sin éxito e inquietud extrema.",
+                    "**Nada de comida/agua**: No permitas que ingiera nada más.",
+                    "**Traslado Inmediato**: No hay remedio casero. Necesita descompresión quirúrgica urgente."
+                ],
+                urgent_alert: "Cada segundo cuenta. Llama a la clínica para que tengan el quirófano preparado."
+            }
+        };
+
+        // Búsqueda de protocolo
+        let protocol = null;
+        for (const key in protocols) {
+            if (protocols[key].keywords.some(k => q.includes(k))) {
+                protocol = protocols[key];
+                break;
+            }
         }
 
-        if (q.includes('tóxico') || q.includes('veneno') || q.includes('chocolate') || q.includes('comió')) {
-            return `${randomEmpathy}<br><br><strong>⚠️ ES UNA EMERGENCIA QUÍMICA:</strong><br><br>1. **No le obligues a vomitar** todavía. Si lo que ha comido es corrosivo (lejía, ácidos), podría quemarle de nuevo al salir.<br>2. **Llama ya** al veterinario mientras lees esto. Dile qué ha comido y hace cuánto tiempo.<br>3. **Capa protectora**: Si tienes carbón activo en casa, es el momento de usarlo, pero lo más importante es la rapidez.<br><br><strong>Recoge el envoltorio o una muestra de lo que ha ingerido. Eso ayudará al doctor a salvarle la vida. ¡Corre!</strong>`;
+        if (protocol) {
+            return `
+                <div class="vet-response-header">
+                    <span class="badg-severity ${protocol.severity.toLowerCase()}">${protocol.severity}</span>
+                    <p><strong>${intro}</strong></p>
+                </div>
+                <p class="vet-advice">${protocol.advice}</p>
+                <div class="vet-steps">
+                    ${protocol.steps.map((s, i) => `<div class="vet-step"><span>${i + 1}</span> ${s}</div>`).join('')}
+                </div>
+                <div class="vet-alert">
+                    <i class="fa-solid fa-triangle-exclamation"></i> ${protocol.urgent_alert}
+                </div>
+            `;
         }
 
-        if (q.includes('herida') || q.includes('sangre') || q.includes('corte') || q.includes('pelea')) {
-            return `${randomEmpathy}<br><br><strong>🩸 VAMOS A PARAR ESA HEMORRAGIA:</strong><br><br>1. **Presiona con fe**: Coge lo más limpio que tengas a mano (una gasa o una camiseta limpia) y presiona fuerte sobre la herida. No dejes de apretar.<br>2. **No mires**: Sé que quieres ver si ha parado, pero no levantes el paño. Si se mancha de sangre, pon otro encima sin quitar el primero.<br>3. **Tranquilidad**: Si él te ve nervioso, su corazón latirá más rápido y saldrá más sangre. Háblale bajito mientras presionas.<br><br><strong>Mantén la presión constante hasta que el veterinario tome el relevo. Estás haciendo un gran trabajo.</strong>`;
-        }
-
-        if (q.includes('calor') || q.includes('jadea') || q.includes('quemado')) {
-            return `${randomEmpathy}<br><br><strong>☀️ ESTÁ SUFRIENDO UN GOLPE DE CALOR:</strong><br><br>1. **Baja la temperatura con cuidado**: Llévalo a la sombra o aire acondicionado inmediatamente.<br>2. **No uses agua helada**: Eso podría causarle un choque peor. Usa agua fresca (natural) y moja sus ingles, axilas y patitas.<br>3. **Aire**: Abanícalo o ponle un ventilador cerca mientras lo mojas. El aire ayudará a que el agua le refresque de verdad.<br><br><strong>Ofrécele agua pero no dejes que beba mucha de golpe. Vamos, un poco de aire y agua le ayudará mucho.</strong>`;
-        }
-
-        return `<strong>Te escucho con atención y entiendo tu inquietud.</strong><br><br>Cada minuto cuenta cuando se trata de ellos, así que por ahora asegúrate de que esté en un lugar cómodo y fresco. Si me das más detalles sobre lo que ha pasado o qué síntomas tiene (como si respira bien o si ha comido algo extraño), podré darte pasos más específicos.<br><br><strong>Estoy aquí contigo, no te preocupes.</strong>`;
+        return `
+            <p><strong>${intro}</strong></p>
+            <p>Te escucho. Para poder darte un protocolo profesional, ¿podrías detallarme los síntomas principales o qué ha ocurrido hace poco?</p>
+            <p style="font-size: 13px; color: var(--text-muted);">Por ejemplo: "Se ha comido chocolate", "No respira bien" o "Se ha dado un golpe".</p>
+            <p><strong>Mantén la calma, estoy aquí para guiarte.</strong></p>
+        `;
     }
 
     console.log("Sistema Alma Elite inicializado.");

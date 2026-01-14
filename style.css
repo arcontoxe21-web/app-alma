@@ -1427,3 +1427,91 @@ textarea:focus {
   color: #fff;
   margin-bottom: 15px;
 }
+
+/* --- DRA. ALMA VET RESPONSES --- */
+.vet-response-header {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.badg-severity {
+  padding: 4px 12px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  width: fit-content;
+}
+
+.badg-severity.crítico,
+.badg-severity.máxima {
+  background: rgba(255, 59, 48, 0.2);
+  color: #ff3b30;
+  border: 1px solid #ff3b30;
+}
+
+.badg-severity.alta {
+  background: rgba(255, 159, 10, 0.2);
+  color: #ff9f0a;
+  border: 1px solid #ff9f0a;
+}
+
+.badg-severity.moderada {
+  background: rgba(100, 210, 255, 0.2);
+  color: #64d2ff;
+  border: 1px solid #64d2ff;
+}
+
+.vet-advice {
+  font-size: 14px;
+  color: var(--text-main);
+  line-height: 1.5;
+  margin-bottom: 20px;
+  padding-left: 10px;
+  border-left: 2px solid var(--primary);
+}
+
+.vet-steps {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  margin-bottom: 25px;
+}
+
+.vet-step {
+  display: flex;
+  gap: 15px;
+  font-size: 14px;
+  line-height: 1.6;
+  color: #eee;
+}
+
+.vet-step span {
+  background: var(--primary);
+  color: #000;
+  min-width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 900;
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.vet-alert {
+  background: rgba(255, 59, 48, 0.1);
+  border: 1px dashed rgba(255, 59, 48, 0.4);
+  padding: 15px;
+  border-radius: 16px;
+  color: #ff3b30;
+  font-size: 13px;
+  font-weight: 700;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}

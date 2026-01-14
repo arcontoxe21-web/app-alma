@@ -55,14 +55,15 @@
                     </p>
                 </div>
 
-                <p class="login-link-text">¿Ya tienes cuenta? <a href="#" onclick="InstallApp.skipInstall()">Entrar
+                <p class="login-link-text">¿Ya tienes cuenta? <a href="#"
+                        onclick="PWAInstall.skipInstall(); return false;">Entrar
                         ahora</a></p>
             </div>
 
             <!-- iOS Instructions Modal -->
             <div id="ios-install-modal" class="modal hidden">
                 <div class="modal-content glass-panel">
-                    <span class="close-modal" onclick="InstallApp.closeIosModal()">&times;</span>
+                    <span class="close-modal" onclick="PWAInstall.closeIOSModal()">&times;</span>
                     <i class="fa-brands fa-apple apple-icon"></i>
                     <h3>Instalar en iPhone</h3>
                     <p>Apple requiere hacerlo manualmente:</p>
@@ -73,7 +74,7 @@
                                 class="fa-regular fa-square-plus"></i>.</li>
                         <li>Dale a <strong>Añadir</strong>.</li>
                     </ol>
-                    <button class="btn-secondary" onclick="InstallApp.closeIosModal()">Entendido</button>
+                    <button class="btn-secondary" onclick="PWAInstall.closeIOSModal()">Entendido</button>
                 </div>
             </div>
         </section>
@@ -538,6 +539,8 @@
 
         <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
             integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+        <!-- PWA Install System - Must load before main.js -->
+        <script src="pwa-install.js"></script>
         <script type="module" src="./main.js"></script>
 </body>
 

@@ -1052,7 +1052,7 @@ function updateLocationDisplay(lat, lng) {
 }
 
 async function getVetAIResponse(q) {
-    const intro = "Soy la **Dra. Alma (v6.0)**, especialista en medicina de urgencias de la Manada.";
+    const intro = "Soy la **Dra. Alma (v6.5)**, especialista en medicina de urgencias de la Manada.";
     async function searchAddress() {
         const input = document.getElementById('search-address-input');
         const query = input.value.trim();
@@ -1272,7 +1272,7 @@ async function getVetAIResponse(q) {
             const typing = document.createElement('div');
             typing.className = 'chat-bubble other';
             typing.id = 'ai-typing-indicator';
-            typing.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Dra. Alma (v6.0) está escribiendo...';
+            typing.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Dra. Alma (v6.5) está escribiendo...';
             chatContainer.appendChild(typing);
             chatContainer.appendChild(typing);
             chatContainer.scrollTop = chatContainer.scrollHeight;
@@ -1858,12 +1858,28 @@ async function getVetAIResponse(q) {
 
         init() {
             console.log('📱 PWA Init detectado');
+            if (typeof showToast === 'function') showToast("Sistema v6.5 Iniciado Correctamente", "success");
+
+            // Attach Click Listener Safely
+            const btn = document.getElementById('btn-install-pwa');
+            if (btn) {
+                btn.addEventListener('click', () => {
+                    this.handleInstall();
+                });
+            }
 
             // Listen for install prompt (Android/Desktop)
             window.addEventListener('beforeinstallprompt', (e) => {
                 e.preventDefault();
                 this.deferredPrompt = e;
                 console.log('✅ Install prompt captured');
+                // Update button
+                if (btn) {
+                    btn.style.display = 'flex';
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fa-solid fa-download"></i> INSTALAR APP (Listo)';
+                    btn.style.background = '#0a8e69';
+                }
             });
 
             // Check if already installed (Standalone mode)
@@ -1963,7 +1979,7 @@ async function getVetAIResponse(q) {
         window.addEventListener('load', () => {
             navigator.serviceWorker.register('./sw.js')
                 .then(registration => {
-                    console.log('✅ SW v6.0 Registered:', registration);
+                    console.log('✅ SW v6.5 Registered:', registration);
                     // Si hay una actualización esperando, forzarla
                     if (registration.waiting) {
                         registration.waiting.postMessage({ type: 'SKIP_WAITING' });

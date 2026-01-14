@@ -1934,3 +1934,6 @@ const InstallApp = {
 
 // Initialize PWA Logic immediately
 InstallApp.init();
+
+// Hacer InstallApp accesible globalmente para los onclick de HTML
+window.InstallApp = InstallApp;

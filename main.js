@@ -1,16 +1,36 @@
 import { getVetResponse, initVetSession } from './services/gemini.js';
 
-/* --- AUTHENTICATION MODULE --- */
+/* --- AUTHENTICATION MODULE v2.0 --- */
 const Auth = {
-    user: JSON.parse(localStorage.getItem('alma_user')) || null,
+    user: null,
 
-    register(name, email, password, animalType) {
+    // Inicializar desde localStorage
+    init() {
+        try {
+            const stored = localStorage.getItem('alma_user');
+            if (stored) {
+                this.user = JSON.parse(stored);
+                console.log('✅ Sesión restaurada para:', this.user.name);
+            }
+        } catch (e) {
+            console.warn('Error al restaurar sesión:', e);
+            localStorage.removeItem('alma_user');
+        }
+    },
+
+    // Registrar nuevo usuario (solo nombre y contraseña)
+    register(name, password, animalType = 'wolf') {
+        // Verificar si el nombre ya existe
+        const existingUsers = this.getAllUsers();
+        if (existingUsers.find(u => u.name.toLowerCase() === name.toLowerCase())) {
+            return { success: false, error: 'Este nombre de usuario ya existe' };
+        }
+
         const newUser = {
             id: 'user_' + Date.now(),
-            name,
-            email,
-            password, // Mock: In production, hash this!
-            animalType, // Spirit Animal (wolf, cat, etc.)
+            name: name.trim(),
+            password: password, // En producción: hashear
+            animalType: animalType,
             avatar: this.getAnimalAvatar(animalType),
             level: 1,
             xp: 0,
@@ -21,20 +41,90 @@ const Auth = {
             },
             history: [
                 { date: new Date().toLocaleDateString(), action: 'Te has unido a la Manada', icon: 'fa-paw' }
-            ]
+            ],
+            createdAt: new Date().toISOString()
         };
+
+        // Guardar en lista de usuarios
+        existingUsers.push({ name: newUser.name, password: newUser.password, id: newUser.id });
+        localStorage.setItem('alma_users', JSON.stringify(existingUsers));
+
+        // Guardar sesión actual
         localStorage.setItem('alma_user', JSON.stringify(newUser));
         this.user = newUser;
-        return newUser;
+
+        console.log('✅ Usuario registrado:', name);
+        return { success: true, user: newUser };
     },
 
-    login(email, password) {
-        const stored = JSON.parse(localStorage.getItem('alma_user'));
-        if (stored && stored.email === email && stored.password === password) {
-            this.user = stored;
-            return true;
+    // Login con nombre y contraseña
+    login(name, password) {
+        const users = this.getAllUsers();
+        const found = users.find(u =>
+            u.name.toLowerCase() === name.toLowerCase() &&
+            u.password === password
+        );
+
+        if (found) {
+            // Buscar datos completos del usuario
+            const stored = localStorage.getItem('alma_user');
+            let userData = stored ? JSON.parse(stored) : null;
+
+            // Si el usuario guardado no es el que hace login, crear uno nuevo
+            if (!userData || userData.name.toLowerCase() !== name.toLowerCase()) {
+                userData = {
+                    id: found.id,
+                    name: found.name,
+                    password: found.password,
+                    animalType: 'wolf',
+                    avatar: this.getAnimalAvatar('wolf'),
+                    level: 1,
+                    xp: 0,
+                    stats: { alerts: 0, sponsored: 0, events: 0 },
+                    history: [{ date: new Date().toLocaleDateString(), action: 'Sesión iniciada', icon: 'fa-sign-in' }]
+                };
+            }
+
+            localStorage.setItem('alma_user', JSON.stringify(userData));
+            this.user = userData;
+            console.log('✅ Login exitoso:', name);
+            return { success: true };
         }
-        return false;
+
+        return { success: false, error: 'Usuario o contraseña incorrectos' };
+    },
+
+    // Login con Google (simulado por ahora)
+    async loginWithGoogle() {
+        // Por ahora simulamos un login con Google
+        // En producción usarías Firebase Auth o similar
+        const mockGoogleUser = {
+            id: 'google_' + Date.now(),
+            name: 'Usuario Google',
+            email: 'usuario@gmail.com',
+            animalType: 'wolf',
+            avatar: 'https://lh3.googleusercontent.com/a/default-user',
+            level: 1,
+            xp: 0,
+            stats: { alerts: 0, sponsored: 0, events: 0 },
+            history: [{ date: new Date().toLocaleDateString(), action: 'Conectado con Google', icon: 'fa-google' }],
+            isGoogleUser: true
+        };
+
+        localStorage.setItem('alma_user', JSON.stringify(mockGoogleUser));
+        this.user = mockGoogleUser;
+
+        return { success: true, user: mockGoogleUser };
+    },
+
+    // Obtener todos los usuarios registrados
+    getAllUsers() {
+        try {
+            const users = localStorage.getItem('alma_users');
+            return users ? JSON.parse(users) : [];
+        } catch (e) {
+            return [];
+        }
     },
 
     logout() {
@@ -45,11 +135,11 @@ const Auth = {
 
     getAnimalAvatar(type) {
         const avatars = {
-            'wolf': 'https://images.unsplash.com/photo-1534251369789-5067c8b8dc32?q=80&w=200&auto=format&fit=crop', // Lobo
-            'fox': 'https://images.unsplash.com/photo-1516934024742-b461fba47600?q=80&w=200&auto=format&fit=crop', // Zorro
-            'eagle': 'https://images.unsplash.com/photo-1611000962228-444f5bd63ac9?q=80&w=200&auto=format&fit=crop', // Águila
-            'cat': 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=200&auto=format&fit=crop', // Gato
-            'lion': 'https://images.unsplash.com/photo-1614027164847-1b28cfe1df60?q=80&w=200&auto=format&fit=crop' // León
+            'wolf': 'https://images.unsplash.com/photo-1534251369789-5067c8b8dc32?q=80&w=200&auto=format&fit=crop',
+            'fox': 'https://images.unsplash.com/photo-1516934024742-b461fba47600?q=80&w=200&auto=format&fit=crop',
+            'eagle': 'https://images.unsplash.com/photo-1611000962228-444f5bd63ac9?q=80&w=200&auto=format&fit=crop',
+            'cat': 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=200&auto=format&fit=crop',
+            'lion': 'https://images.unsplash.com/photo-1614027164847-1b28cfe1df60?q=80&w=200&auto=format&fit=crop'
         };
         return avatars[type] || avatars['wolf'];
     },
@@ -79,21 +169,28 @@ const Auth = {
             document.getElementById('screen-register')?.classList.remove('active');
             document.getElementById('screen-landing')?.classList.remove('active');
 
-            // If on login screen, go home
-            if (!document.querySelector('.screen.active') || document.querySelector('.screen.active').id.includes('login') || document.querySelector('.screen.active').id.includes('register') || document.querySelector('.screen.active').id.includes('landing')) {
-                document.getElementById('screen-home').classList.add('active');
-                document.querySelector('.bottom-nav').classList.remove('hidden');
-            }
+            // Ocultar landing completamente
+            const landing = document.getElementById('screen-landing');
+            if (landing) landing.style.display = 'none';
+
+            // Mostrar home y nav
+            document.getElementById('screen-home')?.classList.add('active');
+            document.querySelector('.bottom-nav')?.classList.remove('hidden');
+
+            console.log('✅ UI actualizada para usuario:', this.user.name);
         } else {
-            // Show Login
+            // No hay usuario - mostrar registro
             document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
-            document.getElementById('screen-login')?.classList.add('active');
-            document.querySelector('.bottom-nav').classList.add('hidden');
+            document.getElementById('screen-register')?.classList.add('active');
+            document.querySelector('.bottom-nav')?.classList.add('hidden');
         }
     }
 };
 
+// Inicializar Auth al cargar
+Auth.init();
 window.Auth = Auth;
+
 
 const animals = [
     // --- DOGS (RESCUED FROM ALMA HONDON) ---
@@ -1780,42 +1877,100 @@ async function getVetAIResponse(q) {
     // Also try immediately in case DOM is already ready (for hot reload)
     renderHomeNews();
 
-    /* --- AUTH UI HANDLERS --- */
-    window.handleRegister = () => {
-        const name = document.getElementById('reg-name').value;
-        const email = document.getElementById('reg-email').value;
-        const pass = document.getElementById('reg-pass').value;
-        const spirit = document.getElementById('reg-spirit').value;
+    /* --- AUTH UI HANDLERS v2.0 --- */
 
-        if (name && email && pass) {
-            Auth.register(name, email, pass, spirit);
+    // Función para mostrar toast desde Auth
+    function showAuthToast(message, type = 'info') {
+        if (window.PWAInstall && window.PWAInstall.showToast) {
+            window.PWAInstall.showToast(message, type);
+        } else {
+            // Fallback: crear toast simple
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed; top: 80px; left: 50%; transform: translateX(-50%);
+                background: ${type === 'success' ? '#0a8e69' : type === 'error' ? '#ff3b30' : '#333'};
+                color: white; padding: 14px 24px; border-radius: 12px; z-index: 99999;
+                font-size: 14px; font-weight: 600;
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+    }
+
+    window.handleRegister = () => {
+        const name = document.getElementById('reg-name')?.value?.trim();
+        const pass = document.getElementById('reg-pass')?.value;
+        const spirit = document.getElementById('reg-spirit')?.value || 'wolf';
+
+        if (!name || !pass) {
+            showAuthToast('Por favor completa nombre y contraseña', 'error');
+            return;
+        }
+
+        if (name.length < 3) {
+            showAuthToast('El nombre debe tener al menos 3 caracteres', 'error');
+            return;
+        }
+
+        if (pass.length < 4) {
+            showAuthToast('La contraseña debe tener al menos 4 caracteres', 'error');
+            return;
+        }
+
+        const result = Auth.register(name, pass, spirit);
+
+        if (result.success) {
+            showAuthToast('¡Bienvenido a la Manada, ' + name + '!', 'success');
             Auth.updateUI();
         } else {
-            alert('Por favor completa todos los campos para unirte a la manada.');
+            showAuthToast(result.error || 'Error al crear cuenta', 'error');
         }
     };
 
     window.handleLogin = () => {
-        const email = document.getElementById('login-email').value;
-        const pass = document.getElementById('login-pass').value;
+        const name = document.getElementById('login-name')?.value?.trim();
+        const pass = document.getElementById('login-pass')?.value;
 
-        if (Auth.login(email, pass)) {
+        if (!name || !pass) {
+            showAuthToast('Por favor ingresa nombre y contraseña', 'error');
+            return;
+        }
+
+        const result = Auth.login(name, pass);
+
+        if (result.success) {
+            showAuthToast('¡Bienvenido de vuelta!', 'success');
             Auth.updateUI();
         } else {
-            alert('Credenciales incorrectas. Inténtalo de nuevo.');
+            showAuthToast(result.error || 'Credenciales incorrectas', 'error');
+        }
+    };
+
+    window.handleGoogleSignIn = async () => {
+        showAuthToast('Conectando con Google...', 'info');
+
+        try {
+            const result = await Auth.loginWithGoogle();
+            if (result.success) {
+                showAuthToast('¡Conectado con Google!', 'success');
+                Auth.updateUI();
+            }
+        } catch (e) {
+            showAuthToast('Error al conectar con Google', 'error');
         }
     };
 
     window.showRegister = () => {
-        document.getElementById('screen-login').classList.remove('active');
-        document.getElementById('screen-register').classList.add('active');
-        document.querySelector('.bottom-nav').classList.add('hidden');
+        document.getElementById('screen-login')?.classList.remove('active');
+        document.getElementById('screen-register')?.classList.add('active');
+        document.querySelector('.bottom-nav')?.classList.add('hidden');
     };
 
     window.showLogin = () => {
-        document.getElementById('screen-register').classList.remove('active');
-        document.getElementById('screen-login').classList.add('active');
-        document.querySelector('.bottom-nav').classList.add('hidden');
+        document.getElementById('screen-register')?.classList.remove('active');
+        document.getElementById('screen-login')?.classList.add('active');
+        document.querySelector('.bottom-nav')?.classList.add('hidden');
     };
 
     window.selectSpirit = (type, el) => {
@@ -1824,7 +1979,7 @@ async function getVetAIResponse(q) {
         document.getElementById('reg-spirit').value = type;
     };
 
-    // Initialize Auth
+    // Initialize Auth UI
     document.addEventListener('DOMContentLoaded', () => {
         Auth.updateUI();
     });

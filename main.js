@@ -406,75 +406,91 @@ function showDetail(animal) {
 const LocationManager = {
     pos: JSON.parse(localStorage.getItem('alma_last_pos')) || null,
     watchId: null,
-    status: 'idle', // idle, locating, success, error
+    status: 'idle', // idle, locating, success, error, manual
     error: null,
     manuallyMoved: false,
 
     async init() {
-        console.log("📍 LocationManager: Iniciando...");
+        console.log("📍 LocationManager: Iniciando secuencia robusta...");
         this.status = 'locating';
+        this.updateStatusOverlay('Buscando señal GPS...');
 
-        // Comprobar si la API existe (falla en móviles con HTTP móvil)
+        // 0. Check de seguridad y HTTPS
         if (!navigator.geolocation) {
-            console.warn("⚠️ API de Geolocalización no disponible (¿No es HTTPS?)");
-            this.handleError({ code: 0, message: "Requiere HTTPS en móvil" });
-            this.locateByIP(); // Forzar IP inmediatamente
+            console.warn("⚠️ API Geo no disponible.");
+            this.handleError({ code: 0, message: "Tu dispositivo no soporta geolocalización." });
+            this.locateByIP("API no disponible");
             return;
         }
 
-        // 1. Intentar IP como fallback ultra-rápido si en 3 segundos no hay GPS
-        setTimeout(() => {
-            if (!this.pos) {
-                console.log("📍 GPS lento, intentando fallback por IP...");
-                this.locateByIP();
-            }
-        }, 3000);
-
-        // 2. Intentar obtener posición rápida inicial para disparar el prompt
+        // 1. Capa Rápida (3s timeout) - Objetivo: Centrar mapa rápido
+        console.log("📍 Intentando Capa 1: GPS Rápido...");
         navigator.geolocation.getCurrentPosition(
             (p) => {
-                console.log("📍 Posición rápida inicial obtenida");
-                this.updateInternal(p, 'initial-fast');
+                console.log("✅ Capa 1 Éxito");
+                this.updateInternal(p, 'fast-gps');
             },
             (err) => {
-                console.warn("⚠️ Fallo posición rápida inicial:", err.message);
+                console.warn("⚠️ Capa 1 Falló:", err.message);
+                this.updateStatusOverlay('GPS débil, aumentando potencia...');
             },
-            { enableHighAccuracy: false, maximumAge: 30000, timeout: 5000 }
+            { enableHighAccuracy: false, maximumAge: 60000, timeout: 3000 }
         );
 
-        // 3. Iniciar seguimiento de alta precisión
+        // 2. Capa Precisa (Watch) - Objetivo: Ubicación real para SOS
+        console.log("📍 Iniciando Capa 2: Watch Alta Precisión...");
         this.startWatch();
+
+        // 3. Fallback a IP automático si no hay éxito en 6s
+        setTimeout(() => {
+            if (!this.pos && this.status === 'locating') {
+                console.warn("⏰ Tiempo de espera GPS excedido. Intentando IP...");
+                this.updateStatusOverlay('Señal débil, triangulando por red...');
+                this.locateByIP("Timeout GPS");
+            }
+        }, 6000);
+
+        // 4. Fallback Manual Definitivo a los 12s
+        setTimeout(() => {
+            if (!this.pos && this.status !== 'success') {
+                this.handleError({ code: 3, message: "No se pudo obtener ubicación automática." });
+            }
+        }, 12000);
     },
 
-    async locateByIP() {
+    async locateByIP(reason) {
         try {
-            // Usamos una API gratuita y rápida para obtener ubicación aproximada
             const resp = await fetch('https://ipapi.co/json/');
             const data = await resp.json();
             if (data.latitude && data.longitude && !this.pos) {
-                console.log("📍 Ubicación aproximada por IP obtenida");
+                console.log(`📍 IP Fallback Éxito (${reason})`);
                 const ipPos = [data.latitude, data.longitude];
                 this.pos = ipPos;
                 this.status = 'success';
+                // Añadimos un pequeño jitter para que no todos los usuarios de IP (misma ciudad) caigan en el mismo pixel
+                this.pos[0] += (Math.random() - 0.5) * 0.01;
+                this.pos[1] += (Math.random() - 0.5) * 0.01;
+
                 this.syncUI();
+                showToast("Ubicación aproximada por red WiFi", "info");
             }
         } catch (e) {
             console.warn("⚠️ Fallo fallback IP:", e);
+            if (!this.pos) this.handleError({ code: 99, message: "Fallo total de ubicación." });
         }
     },
 
     startWatch() {
         if (this.watchId) navigator.geolocation.clearWatch(this.watchId);
-
-        // Configuraciones de watch: timeouts largos para dar tiempo a los satélites en Mac/Chrome
         this.watchId = navigator.geolocation.watchPosition(
-            (p) => this.updateInternal(p, 'watch'),
+            (p) => this.updateInternal(p, 'high-accuracy-watch'),
             (err) => {
                 if (this.status === 'locating' && err.code !== 1) {
-                    console.log("🔄 Reintentando watch con baja precisión...");
+                    // Si falla high accuracy, intentamos low accuracy
                     this.startWatchLow();
+                } else {
+                    this.handleError(err);
                 }
-                this.handleError(err);
             },
             { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 }
         );
@@ -483,102 +499,152 @@ const LocationManager = {
     startWatchLow() {
         if (this.watchId) navigator.geolocation.clearWatch(this.watchId);
         this.watchId = navigator.geolocation.watchPosition(
-            (p) => this.updateInternal(p, 'low-accuracy'),
-            (err) => this.handleError(err),
+            (p) => this.updateInternal(p, 'low-accuracy-watch'),
+            (err) => this.handleError(err), // Si falla aquí, ya lo manejamos en los timeouts
             { enableHighAccuracy: false, timeout: 20000, maximumAge: 10000 }
         );
     },
 
     updateInternal(p, source) {
+        // Ignorar actualizaciones antiguas si ya tenemos una reciente buena
+        if (this.status === 'success' && source === 'fast-gps') return;
+
         const newPos = [p.coords.latitude, p.coords.longitude];
+
+        // Evitar saltos pequeños
+        if (this.pos && L.latLng(this.pos).distanceTo(newPos) < 10) return;
+
         this.pos = newPos;
         this.status = 'success';
         this.error = null;
         localStorage.setItem('alma_last_pos', JSON.stringify(newPos));
 
         console.log(`📍 Posición actualizada (${source}):`, newPos);
-
-        // Quitar overlays de carga
-        document.querySelectorAll('.map-loading-overlay').forEach(el => el.remove());
-
-        // Actualizar UI y Mapas
+        this.removeOverlay();
         this.syncUI();
     },
 
     handleError(err) {
-        console.warn("⚠️ GPS Error:", err.message);
+        console.warn("⚠️ GPS Error Handler:", err.message);
+
+        // Si ya tenemos posición, ignoramos errores transitorios de watch
+        if (this.pos && this.status === 'success') return;
+
         this.status = 'error';
         this.error = err;
 
-        const display = document.getElementById('location-display');
-        if (display) {
-            let msg = "Buscando señal...";
-            if (err.code === 1) msg = "Permiso denegado en sistema";
-            else if (err.code === 2) msg = "Señal Wi-Fi/GPS no disponible";
-            else if (err.code === 3) msg = "Tiempo agotado";
+        // Mensaje amigable
+        let msg = "No pudimos encontrarte.";
+        let action = "Mueve el mapa manualmente.";
 
-            if (this.pos) {
-                // Si tenemos IP pero el GPS falló, avisamos con un toast discreto
-                showToast(`GPS preciso no disponible: ${msg}. Usando ubicación aproximada.`, "info");
-            } else {
-                display.innerHTML = `<i class="fa-solid fa-triangle-exclamation" style="color: var(--danger);"></i> GPS: ${msg}`;
-            }
-        }
+        if (err.code === 1) msg = "Permiso denegado.";
+        if (err.code === 2 || err.code === 3) msg = "Señal GPS no disponible.";
 
-        // Si es un error de permiso o señal de Mac (WiFi off), dejamos de bloquear al usuario
-        if (err.code === 1 || err.code === 2) {
-            document.querySelectorAll('.map-loading-overlay').forEach(el => el.remove());
+        // Mostrar overlay de error manual
+        this.updateStatusOverlay(`
+            <i class="fa-solid fa-map-location-dot" style="font-size:30px; color:var(--danger); margin-bottom:15px;"></i>
+            <span>${msg}</span>
+            <p style="font-size:11px; color:#aaa; margin-top:5px; text-align:center;">${action}</p>
+            <button onclick="LocationManager.enableManualMode()" class="btn-manual-override">
+                USAR MAPA MANUALMENTE
+            </button>
+        `, true);
+    },
+
+    enableManualMode() {
+        this.status = 'manual';
+        this.manuallyMoved = true;
+        this.removeOverlay();
+        showToast("Modo Manual Activado: Arrastra el pin", "info");
+
+        // Si no hay posición, poner default Madrid
+        if (!this.pos) {
+            this.pos = [40.4168, -3.7038];
+            this.syncUI();
         }
     },
 
     syncUI() {
-        // Actualizar display de texto
+        // 1. Texto
         if (this.pos) {
             const display = document.getElementById('location-display');
             if (display) {
-                display.innerHTML = `<i class="fa-solid fa-location-dot" style="color: var(--primary); margin-right: 8px;"></i> ${this.pos[0].toFixed(5)}, ${this.pos[1].toFixed(5)}`;
+                // Si es manual, mostrar icono diferente
+                const icon = this.status === 'manual' || this.manuallyMoved ? 'fa-hand-pointer' : 'fa-location-crosshairs';
+                display.innerHTML = `<i class="fa-solid ${icon}" style="color: var(--primary); margin-right: 8px;"></i> ${this.pos[0].toFixed(5)}, ${this.pos[1].toFixed(5)}`;
             }
         }
 
-        // Sincronizar Mapa de Reporte
-        if (rescueMap && rescueMarker && !this.manuallyMoved) {
-            rescueMap.flyTo(this.pos, 16);
-            rescueMarker.setLatLng(this.pos);
+        // 2. Mapas
+        if (rescueMap && rescueMarker) {
+            // Solo mover el mapa automáticamente si NO es movimiento manual
+            if (!this.manuallyMoved) {
+                rescueMap.flyTo(this.pos, 16);
+                rescueMarker.setLatLng(this.pos);
+            }
         }
 
-        // Sincronizar Radar Social
         if (radarMap) {
             if (!radarMap._hasCentered && this.pos) {
                 radarMap.flyTo(this.pos, 13);
                 radarMap._hasCentered = true;
             }
-            activeAlerts.forEach(a => {
-                if (this.pos) {
+            // Recalcular distancias
+            if (this.pos) {
+                activeAlerts.forEach(a => {
                     a.distance = (L.latLng(this.pos).distanceTo(L.latLng(a.loc)) / 1000).toFixed(1);
-                }
-            });
-            renderAlertList();
+                });
+                renderAlertList();
+            }
         }
     },
 
     async forceLocate() {
+        console.log("📍 Forzando re-localización manual...");
         this.manuallyMoved = false;
         this.status = 'locating';
-        this.syncUI();
+        this.pos = null; // Resetear para forzar búsqueda real
+        this.init(); // Re-iniciar todo el proceso robusto
+    },
 
-        return new Promise((resolve, reject) => {
-            navigator.geolocation.getCurrentPosition(
-                (p) => {
-                    this.updateInternal(p, 'manual');
-                    resolve(p);
-                },
-                (err) => {
-                    this.handleError(err);
-                    reject(err);
-                },
-                { enableHighAccuracy: true, timeout: 10000 }
-            );
-        });
+    // --- OVERLAY SYSTEM ---
+    updateStatusOverlay(htmlContent, isError = false) {
+        const mapContainer = document.getElementById('rescue-map');
+        if (!mapContainer) return;
+
+        // Eliminar existente
+        this.removeOverlay();
+
+        const overlay = document.createElement('div');
+        overlay.id = 'gps-status-overlay';
+        overlay.style = `
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); backdrop-filter: blur(4px);
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            z-index: 2000; border-radius: 24px; color: white;
+            font-size: 14px; font-weight: 700; padding: 20px;
+            transition: all 0.3s ease;
+        `;
+
+        if (!isError) {
+            overlay.innerHTML = `
+                <i class="fa-solid fa-satellite-dish fa-beat" style="font-size:30px; color:var(--primary); margin-bottom:15px; --fa-animation-duration: 2s;"></i>
+                <span>${htmlContent}</span>
+                <p style="font-size:10px; color:var(--text-muted); margin-top:10px;">Mantén la app abierta...</p>
+            `;
+        } else {
+            overlay.innerHTML = htmlContent;
+        }
+
+        mapContainer.appendChild(overlay);
+    },
+
+    removeOverlay() {
+        const existing = document.getElementById('gps-status-overlay');
+        if (existing) {
+            existing.style.opacity = '0';
+            setTimeout(() => existing.remove(), 300);
+        }
     }
 };
 
@@ -602,23 +668,27 @@ function initRescueTabs() {
             document.getElementById(`tab-${id}`).style.display = 'block';
 
             if (id === 'radar') setTimeout(initRadarMap, 150);
-            if (id === 'report') setTimeout(initRescueMap, 150);
+            if (id === 'report') {
+                setTimeout(() => {
+                    initRescueMap();
+                    if (rescueMap) rescueMap.invalidateSize();
+                }, 200);
+            }
         });
     });
 }
 
 function initRescueMap() {
     if (typeof L === 'undefined') {
-        console.error("Leaflet (L) no está cargado.");
-        showToast("Error: No se pudo cargar el motor de mapas.", "error");
+        showToast("Error: Mapas no disponibles offline", "error");
         return;
     }
 
     const mapContainer = document.getElementById('rescue-map');
     if (!mapContainer) return;
 
+    // Si ya existe, solo invalidar tamaño
     if (rescueMap) {
-        console.log("Re-ajustando mapa existente...");
         setTimeout(() => {
             rescueMap.invalidateSize();
             if (rescueMarker) rescueMap.setView(rescueMarker.getLatLng());
@@ -626,38 +696,62 @@ function initRescueMap() {
         return;
     }
 
-    console.log("Iniciando nuevo mapa de rescate...");
+    console.log("📍 Map Engine: Inicializando Leaflet...");
 
-    // Si tenemos ubicación en caché, empezamos ahí directamente
+    // Posición inicial: O la última conocida o Default Madrid
     const startPos = LocationManager.pos || [40.4168, -3.7038];
     rescueMap = L.map('rescue-map', { zoomControl: false, attributionControl: false }).setView(startPos, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(rescueMap);
 
+    // Marcador arrastrable
     rescueMarker = L.marker(startPos, { draggable: true }).addTo(rescueMap);
+
+    // Eventos de arrastre manual
     rescueMarker.on('dragstart', () => {
         LocationManager.manuallyMoved = true;
+        LocationManager.removeOverlay();
+        LocationManager.status = 'manual';
     });
+
     rescueMarker.on('dragend', () => {
         const pos = rescueMarker.getLatLng();
         LocationManager.pos = [pos.lat, pos.lng];
         LocationManager.syncUI();
+        showToast("Ubicación fijada manualmente", "success");
     });
 
-    // Si no tenemos ubicación reciente, mostramos un overlay de carga sobre el mapa
-    if (LocationManager.status === 'locating') {
-        const overlay = document.createElement('div');
-        overlay.className = 'map-loading-overlay';
-        overlay.style = 'position:absolute; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; flex-direction:column; justify-content:center; align-items:center; z-index:2000; border-radius:24px; color:white; font-size:14px; font-weight:700;';
-        overlay.innerHTML = `
-            <i class="fa-solid fa-circle-notch fa-spin" style="font-size:30px; color:var(--primary); margin-bottom:15px;"></i>
-            <span>OBTENIENDO TU POSICIÓN...</span>
-            <p style="font-size:10px; color:var(--text-muted); margin-top:10px;">Asegúrate de estar cerca de una ventana o WiFi</p>
-            <button onclick="document.querySelectorAll('.map-loading-overlay').forEach(el=>el.remove()); LocationManager.manuallyMoved=true;" style="margin-top:20px; background:none; border:1px solid rgba(255,255,255,0.2); color:white; padding:8px 15px; border-radius:10px; font-size:11px;">USAR MAPA MANUAL</button>
+    // Añadir estilo CSS dinámico para el botón manual
+    if (!document.getElementById('gps-styles')) {
+        const style = document.createElement('style');
+        style.id = 'gps-styles';
+        style.textContent = `
+            .btn-manual-override {
+                margin-top: 15px;
+                background: rgba(255,255,255,0.1);
+                border: 1px solid var(--danger);
+                color: white;
+                padding: 10px 20px;
+                border-radius: 12px;
+                font-weight: 700;
+                font-size: 12px;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+            .btn-manual-override:active {
+                background: var(--danger);
+                transform: scale(0.95);
+            }
         `;
-        mapContainer.appendChild(overlay);
+        document.head.appendChild(style);
     }
 
+    // Inicializar UI con estado actual
     LocationManager.syncUI();
+
+    // Si estábamos buscando y no hay resultados, restaurar overlay
+    if (LocationManager.status === 'locating') {
+        LocationManager.updateStatusOverlay("Recuperando señal...");
+    }
 }
 
 function initRadarMap() {
@@ -840,174 +934,177 @@ function updateLocationDisplay(lat, lng) {
     if (display) display.innerHTML = `<i class="fa-solid fa-location-dot" style="color: var(--primary); margin-right: 8px;"></i> ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
 }
 
-async function getVetAIResponse(q) {
-    const intro = "Soy la **Dra. Alma (v7.2)**, especialista en medicina de urgencias de la Manada.";
-    async function searchAddress() {
-        const input = document.getElementById('search-address-input');
-        const query = input.value.trim();
-        if (!query) return;
+// (Lógica SOS extraída al nivel de módulo)
+async function searchAddress() {
+    const input = document.getElementById('search-address-input');
+    const query = input.value.trim();
+    if (!query) return;
 
-        const btn = document.getElementById('btn-search-address');
-        const originalContent = btn.innerHTML;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+    const btn = document.getElementById('btn-search-address');
+    const originalContent = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
 
-        try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
-            const data = await response.json();
+    try {
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`);
+        const data = await response.json();
 
-            if (data && data.length > 0) {
-                const result = data[0];
-                const pos = [parseFloat(result.lat), parseFloat(result.lon)];
+        if (data && data.length > 0) {
+            const result = data[0];
+            const pos = [parseFloat(result.lat), parseFloat(result.lon)];
 
-                rescueMap.flyTo(pos, 16);
-                rescueMarker.setLatLng(pos);
-                LocationManager.pos = pos;
-                LocationManager.syncUI();
-                showToast("Ubicación encontrada", "success");
-                input.value = '';
-            } else {
-                showToast("No se encontró la dirección.", "info");
-            }
-        } catch (error) {
-            console.error("Error en búsqueda:", error);
-            showToast("Error al conectar con el servidor de mapas.", "error");
-        } finally {
-            btn.innerHTML = originalContent;
+            rescueMap.flyTo(pos, 16);
+            rescueMarker.setLatLng(pos);
+            LocationManager.pos = pos;
+            LocationManager.syncUI();
+            showToast("Ubicación encontrada", "success");
+            input.value = '';
+        } else {
+            showToast("No se encontró la dirección.", "info");
         }
+    } catch (error) {
+        console.error("Error en búsqueda:", error);
+        showToast("Error al conectar con el servidor de mapas.", "error");
+    } finally {
+        btn.innerHTML = originalContent;
     }
+}
 
-    window.searchAddress = searchAddress;
+window.searchAddress = searchAddress;
 
-    function handleLocateMe() {
-        const btn = document.getElementById('btn-locate-me');
-        if (!btn) return;
+function handleLocateMe() {
+    const btn = document.getElementById('btn-locate-me');
+    if (!btn) return;
 
-        const originalIcon = btn.innerHTML;
-        btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
-        btn.disabled = true;
+    const originalIcon = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+    btn.disabled = true;
 
-        LocationManager.forceLocate()
-            .then(() => {
-                const originalIcon = btn.innerHTML;
-                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-                btn.disabled = true;
+    LocationManager.forceLocate()
+        .then(() => {
+            const originalIcon = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+            btn.disabled = true;
 
-                // Simulate GPS
-                LocationManager.forceLocate()
-                    .then(() => {
-                        btn.innerHTML = originalIcon;
-                        btn.disabled = false;
-                        showToast("Ubicación actualizada", "success");
-                    })
-                    .catch(err => {
-                        console.error("Fallo manual GPS:", err);
-                        let msg = "No se pudo obtener señal.";
-                        let detail = "Mueve el pin o usa el buscador.";
+            // Ensure map is rendered before locating
+            if (rescueMap) rescueMap.invalidateSize();
 
-                        if (err.code === 1) {
-                            msg = "Permiso denegado.";
-                            detail = "Actívalo en el icono del candado de tu navegador.";
-                        } else if (err.code === 2) {
-                            msg = "Señal no disponible.";
-                            detail = "Revisa el WiFi de tu Mac o usa el buscador.";
-                        } else if (err.code === 3) {
-                            msg = "Tiempo agotado.";
-                            detail = "Prueba de nuevo cerca de una ventana.";
-                        }
+            // Simulate GPS
+            LocationManager.forceLocate()
+                .then(() => {
+                    btn.innerHTML = originalIcon;
+                    btn.disabled = false;
+                    showToast("Ubicación actualizada", "success");
+                })
+                .catch(err => {
+                    console.error("Fallo manual GPS:", err);
+                    let msg = "No se pudo obtener señal.";
+                    let detail = "Mueve el pin o usa el buscador.";
 
-                        showToast(`${msg} ${detail}`, "error");
-                        btn.innerHTML = originalIcon;
-                        btn.disabled = false;
-                    });
-            });
+                    if (err.code === 1) {
+                        msg = "Permiso denegado.";
+                        detail = "Actívalo en el icono del candado de tu navegador.";
+                    } else if (err.code === 2) {
+                        msg = "Señal no disponible.";
+                        detail = "Revisa el WiFi de tu Mac o usa el buscador.";
+                    } else if (err.code === 3) {
+                        msg = "Tiempo agotado.";
+                        detail = "Prueba de nuevo cerca de una ventana.";
+                    }
 
-    }
+                    showToast(`${msg} ${detail}`, "error");
+                    btn.innerHTML = originalIcon;
+                    btn.disabled = false;
+                });
+        });
 
-    /* --- PHOTO EVIDENCE LOGIC --- */
-    window.handlePhotoSelect = (input) => {
-        if (input.files && input.files[0]) {
-            const file = input.files[0];
-            const reader = new FileReader();
+}
 
-            reader.onload = function (e) {
-                document.getElementById('preview-img').src = e.target.result;
-                document.getElementById('rescue-photo-preview').style.display = 'block';
-            }
+/* --- PHOTO EVIDENCE LOGIC --- */
+window.handlePhotoSelect = (input) => {
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        const reader = new FileReader();
 
-            reader.readAsDataURL(file);
-        }
-    }
-
-    window.clearPhoto = () => {
-        document.getElementById('rescue-photo').value = '';
-        document.getElementById('rescue-photo-preview').style.display = 'none';
-        document.getElementById('preview-img').src = '';
-    }
-
-
-    function handleRescueSubmit() {
-        console.log("Evento 'Enviar Alerta' capturado.");
-        const type = document.getElementById('rescue-type').value;
-        const condition = document.getElementById('rescue-condition').value.trim();
-        const photoInput = document.getElementById('rescue-photo');
-        const hasPhoto = photoInput.files && photoInput.files[0];
-
-        if (!rescueMarker) {
-            showToast("El mapa no se ha cargado correctamente.", "error");
-            return;
+        reader.onload = function (e) {
+            document.getElementById('preview-img').src = e.target.result;
+            document.getElementById('rescue-photo-preview').style.display = 'block';
         }
 
-        const pos = rescueMarker.getLatLng();
+        reader.readAsDataURL(file);
+    }
+}
 
-        if (!condition) {
-            showToast("Describe el estado del animal para que los voluntarios puedan ayudar.", "info");
-            document.getElementById('rescue-condition').focus();
-            return;
-        }
+window.clearPhoto = () => {
+    document.getElementById('rescue-photo').value = '';
+    document.getElementById('rescue-photo-preview').style.display = 'none';
+    document.getElementById('preview-img').src = '';
+}
 
-        const btn = document.getElementById('btn-submit-rescue');
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> DESPLEGANDO SOS...';
-        btn.disabled = true;
+
+function handleRescueSubmit() {
+    console.log("Evento 'Enviar Alerta' capturado.");
+    const type = document.getElementById('rescue-type').value;
+    const condition = document.getElementById('rescue-condition').value.trim();
+    const photoInput = document.getElementById('rescue-photo');
+    const hasPhoto = photoInput.files && photoInput.files[0];
+
+    if (!rescueMarker) {
+        showToast("El mapa no se ha cargado correctamente.", "error");
+        return;
+    }
+
+    const pos = rescueMarker.getLatLng();
+
+    if (!condition) {
+        showToast("Describe el estado del animal para que los voluntarios puedan ayudar.", "info");
+        document.getElementById('rescue-condition').focus();
+        return;
+    }
+
+    const btn = document.getElementById('btn-submit-rescue');
+    const originalText = btn.innerHTML;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> DESPLEGANDO SOS...';
+    btn.disabled = true;
+
+    setTimeout(() => {
+        const newAlert = {
+            id: `SOS-${Date.now().toString().slice(-4)}`,
+            type: type.charAt(0).toUpperCase() + type.slice(1),
+            status: 'URGENTE SOS',
+            loc: [pos.lat, pos.lng],
+            address: `Lat: ${pos.lat.toFixed(4)}, Lng: ${pos.lng.toFixed(4)}`, // Simulation
+            title: `SOS: ${type.toUpperCase()} EN PELIGRO`,
+            user: 'Tú (Hace un momento)',
+            messages: ['ALERTA SOS', condition],
+            hasPhoto: hasPhoto, // Flag for UI logic later if needed
+            // If we had a backend, we would upload the photo here.
+            distance: '0.0'
+        };
+        activeAlerts.unshift(newAlert);
+
+        btn.innerHTML = '<i class="fa-solid fa-check"></i> ALERTA ENVIADA';
+        btn.style.background = 'var(--primary)';
+        btn.style.color = '#000';
 
         setTimeout(() => {
-            const newAlert = {
-                id: `SOS-${Date.now().toString().slice(-4)}`,
-                type: type.charAt(0).toUpperCase() + type.slice(1),
-                status: 'URGENTE SOS',
-                loc: [pos.lat, pos.lng],
-                address: `Lat: ${pos.lat.toFixed(4)}, Lng: ${pos.lng.toFixed(4)}`, // Simulation
-                title: `SOS: ${type.toUpperCase()} EN PELIGRO`,
-                user: 'Tú (Hace un momento)',
-                messages: ['ALERTA SOS', condition],
-                hasPhoto: hasPhoto, // Flag for UI logic later if needed
-                // If we had a backend, we would upload the photo here.
-                distance: '0.0'
-            };
-            activeAlerts.unshift(newAlert);
+            showToast("¡Alerta SOS publicada con éxito!", "success");
+            btn.innerHTML = originalText;
+            btn.style.background = 'var(--danger)';
+            btn.style.color = '#fff';
+            btn.disabled = false;
+            document.getElementById('rescue-condition').value = '';
 
-            btn.innerHTML = '<i class="fa-solid fa-check"></i> ALERTA ENVIADA';
-            btn.style.background = 'var(--primary)';
-            btn.style.color = '#000';
-
-            setTimeout(() => {
-                showToast("¡Alerta SOS publicada con éxito!", "success");
-                btn.innerHTML = originalText;
-                btn.style.background = 'var(--danger)';
-                btn.style.color = '#fff';
-                btn.disabled = false;
-                document.getElementById('rescue-condition').value = '';
-
-                // Ir al radar para ver la nueva alerta
-                const radarTab = document.querySelector('.rescue-tab[data-tab="radar"]');
-                if (radarTab) radarTab.click();
-            }, 800);
-        }, 1000);
-    }
+            // Ir al radar para ver la nueva alerta
+            const radarTab = document.querySelector('.rescue-tab[data-tab="radar"]');
+            if (radarTab) radarTab.click();
+        }, 800);
+    }, 1000);
+}
 
 
-    /* --- INITIALIZATION --- */
-    // No longer inside a wrapper function to ensure module-level visibility
+/* --- INITIALIZATION --- */
+/* --- INITIALIZATION --- */
+async function init() {
     Router.init();
     initRescueTabs();
     LocationManager.init();
@@ -1110,6 +1207,8 @@ async function getVetAIResponse(q) {
 
     // Social Hub init (if needed on load)
     if (window.switchSocialTab) window.switchSocialTab('heroes');
+
+
 }
 
 document.addEventListener('DOMContentLoaded', init);

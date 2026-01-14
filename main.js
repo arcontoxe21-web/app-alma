@@ -1270,7 +1270,7 @@ function init() {
         const typing = document.createElement('div');
         typing.className = 'chat-bubble other';
         typing.id = 'ai-typing-indicator';
-        typing.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Dra. Alma (v5.3) está escribiendo...';
+        typing.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Dra. Alma (v5.4) está escribiendo...';
         chatContainer.appendChild(typing);
         chatContainer.appendChild(typing);
         chatContainer.scrollTop = chatContainer.scrollHeight;
@@ -1879,7 +1879,7 @@ const InstallApp = {
         }
     },
 
-    async install() {
+    async handleInstall() {
         if (!this.deferredPrompt) {
             // iOS Handling check
             if (this.isIos()) {
@@ -1887,7 +1887,7 @@ const InstallApp = {
                 return;
             }
 
-            const btn = document.getElementById('btn-install-app');
+            const btn = document.getElementById('btn-install-pwa');
             // Visual feedback for unavailable state
             showToast("Estado: No Instalable (Verificando...)", "info");
             if (btn) {
@@ -1899,7 +1899,7 @@ const InstallApp = {
             return;
         }
 
-        const btn = document.getElementById('btn-install-app');
+        const btn = document.getElementById('btn-install-pwa');
         if (btn) {
             btn.disabled = true;
             btn.innerHTML = '<i class="fa-solid fa-sync fa-spin"></i> PREPARANDO...';
@@ -1961,7 +1961,7 @@ if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
         navigator.serviceWorker.register('./sw.js')
             .then(registration => {
-                console.log('SW v5.3 Registered: ', registration);
+                console.log('SW v5.4 Registered: ', registration);
                 // Forzar actualización si hay uno nuevo esperando
                 if (registration.waiting) {
                     registration.waiting.postMessage({ type: 'SKIP_WAITING' });

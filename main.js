@@ -1341,7 +1341,7 @@ window.switchSocialTab = (tabId) => {
         t.classList.remove('active');
     });
 
-    const activeBtn = document.querySelector(`.social-tab-new[onclick*="'${tabId}'"]`);
+    const activeBtn = Array.from(document.querySelectorAll('.social-tab-new')).find(btn => btn.innerText.toLowerCase().includes(tabId.substring(0, 4)));
     if (activeBtn) {
         activeBtn.style.background = '#0a8e69'; // High contrast
         activeBtn.style.color = 'white';
@@ -1503,7 +1503,42 @@ function renderMissions(container) {
     `;
 }
 
+window.socialMessages = window.socialMessages || {
+    general: [
+        { user: 'Elena R.', text: '¿Alguien sabe si el refugio necesita mantas ahora?', time: '10:30', avatar: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=200&auto=format&fit=crop' },
+        { user: 'Juan P.', text: 'Sí, Elena! Justo puse una alerta de misión', time: '10:32', avatar: 'https://images.unsplash.com/photo-1534251369789-5067c8b8dc32?q=80&w=200&auto=format&fit=crop', isMe: true },
+        { user: 'Sofía L.', text: 'Yo puedo llevar algunas mañana por la tarde.', time: '10:35', avatar: 'https://images.unsplash.com/photo-1437622368342-7a3d73a34c8f?q=80&w=200&auto=format&fit=crop' }
+    ],
+    emergency: [
+        { user: 'Admin', text: '⚠️ Aviso: Gato atrapado en Calle Mayor 4. Se necesita escalera.', time: '09:15', avatar: 'https://images.unsplash.com/photo-1504208434309-cb69f4fe52b0?q=80&w=200&auto=format&fit=crop' },
+        { user: 'Carlos Bombero', text: 'Voy de camino con equipo.', time: '09:20', avatar: 'https://images.unsplash.com/photo-1616198906103-e8473de0e359?q=80&w=200&auto=format&fit=crop' }
+    ],
+    adoptions: [
+        { user: 'Ana', text: '¡Mirad qué feliz está Rex en su nueva casa!', time: 'Ayer', avatar: 'https://images.unsplash.com/photo-1526336024174-e58f5cdd8e13?q=80&w=200&auto=format&fit=crop' }
+    ]
+};
+
+window.sendSocialMessage = (channel) => {
+    const input = document.getElementById('social-chat-input');
+    if (!input || !input.value.trim()) return;
+
+    const msg = {
+        user: Auth.user ? Auth.user.name : 'Invitado',
+        text: input.value.trim(),
+        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        avatar: Auth.user ? Auth.user.avatar : 'https://images.unsplash.com/photo-1534251369789-5067c8b8dc32?q=80&w=200',
+        isMe: true
+    };
+
+    window.socialMessages[channel].push(msg);
+    renderChat(document.getElementById('social-content'), channel);
+};
+
 function renderChat(container, channel = 'general') {
+    // 1. Storage check
+    if (!window.socialMessages[channel]) window.socialMessages[channel] = [];
+    const messages = window.socialMessages[channel];
+
     // Channels UI
     const channels = [
         { id: 'general', name: '# General' },
@@ -1513,33 +1548,14 @@ function renderChat(container, channel = 'general') {
 
     const channelsHTML = `
         <div class="channel-selector">
-            ${channels.map(c => `<div class="channel-pill ${c.id === channel ? 'active' : ''}" onclick="renderChat(document.getElementById('social-content'), '${c.id}')">${c.name}</div>`).join('')}
+            ${channels.map(c => `<div class="channel-pill ${c.id === channel ? 'active' : ''}" onclick="window.renderChat(document.getElementById('social-content'), '${c.id}')">${c.name}</div>`).join('')}
         </div>
     `;
-
-    // Mock Messages based on channel
-    let messages = [];
-    if (channel === 'general') {
-        messages = [
-            { user: 'Elena R.', text: '¿Alguien sabe si el refugio necesita mantas ahora?', time: '10:30', avatar: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=200&auto=format&fit=crop' },
-            { user: 'Juan P.', text: 'Sí, Elena! Justo puse una alerta de misión', time: '10:32', avatar: 'https://images.unsplash.com/photo-1534251369789-5067c8b8dc32?q=80&w=200&auto=format&fit=crop', isMe: true }, // Same as user profile
-            { user: 'Sofía L.', text: 'Yo puedo llevar algunas mañana por la tarde.', time: '10:35', avatar: 'https://images.unsplash.com/photo-1437622368342-7a3d73a34c8f?q=80&w=200&auto=format&fit=crop' }
-        ];
-    } else if (channel === 'emergency') {
-        messages = [
-            { user: 'Admin', text: '⚠️ Aviso: Gato atrapado en Calle Mayor 4. Se necesita escalera.', time: '09:15', avatar: 'https://images.unsplash.com/photo-1504208434309-cb69f4fe52b0?q=80&w=200&auto=format&fit=crop' },
-            { user: 'Carlos Bombero', text: 'Voy de camino con equipo.', time: '09:20', avatar: 'https://images.unsplash.com/photo-1616198906103-e8473de0e359?q=80&w=200&auto=format&fit=crop' }
-        ];
-    } else {
-        messages = [
-            { user: 'Ana', text: '¡Mirad qué feliz está Rex en su nueva casa!', time: 'Yesterday', avatar: 'https://images.unsplash.com/photo-1526336024174-e58f5cdd8e13?q=80&w=200&auto=format&fit=crop' }
-        ];
-    }
 
     container.innerHTML = `
         <div style="height: 100%; display: flex; flex-direction: column;">
             ${channelsHTML}
-            <div id="community-chat-messages" style="flex: 1; overflow-y:auto; display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; padding-bottom:10px;">
+            <div id="community-chat-messages" style="flex: 1; overflow-y:auto; display: flex; flex-direction: column; gap: 15px; margin-bottom: 20px; padding-bottom:10px; max-height: 400px;">
                 ${messages.map(msg => `
                     <div style="display: flex; gap: 10px; ${msg.isMe ? 'flex-direction: row-reverse;' : ''}">
                         <img src="${msg.avatar}" style="width: 35px; height: 35px; border-radius: 50%; object-fit: cover;">
@@ -1554,13 +1570,25 @@ function renderChat(container, channel = 'general') {
 
             <!-- Input Area -->
             <div style="display: flex; gap: 10px; background: rgba(0,0,0,0.3); padding: 10px; border-radius: 20px; border: 1px solid rgba(255,255,255,0.1);">
-                <input type="text" placeholder="Escribe en ${channels.find(c => c.id === channel).name}..." style="flex: 1; background: transparent; border: none; color: white; padding: 0 10px; outline: none;">
-                <button style="width: 35px; height: 35px; background: var(--primary); border-radius: 50%; border: none; color: #000; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                <input type="text" id="social-chat-input" placeholder="Escribe en ${channels.find(c => c.id === channel).name}..." 
+                    style="flex: 1; background: transparent; border: none; color: white; padding: 0 10px; outline: none;"
+                    onkeypress="if(event.key === 'Enter') window.sendSocialMessage('${channel}')">
+                <button onclick="window.sendSocialMessage('${channel}')" 
+                    style="width: 35px; height: 35px; background: var(--primary); border-radius: 50%; border: none; color: #000; display: flex; align-items: center; justify-content: center; cursor: pointer;">
                     <i class="fa-solid fa-paper-plane" style="font-size: 14px;"></i>
                 </button>
             </div>
         </div>
     `;
+
+    // Auto-scroll
+    setTimeout(() => {
+        const chatBox = document.getElementById('community-chat-messages');
+        if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+    }, 50);
+
+    // Quick Fix: Expose helper for onclick
+    window.renderChat = renderChat;
 
     // Quick Fix: Expose helper for onclick
     window.renderChat = renderChat;

@@ -1,10 +1,13 @@
 const CACHE_NAME = 'alma-elite-v1';
 const ASSETS = [
-    '/app-alma/',
-    '/app-alma/index.html',
-    '/app-alma/style.css',
-    '/app-alma/main.js',
-    '/app-alma/manifest.json'
+    './',
+    './index.html',
+    './style.css',
+    './main.js',
+    './manifest.json',
+    './icons/icon-192.png',
+    './icons/icon-512.png',
+    './logo-alma.png'
 ];
 
 // Install Event: Cache core assets

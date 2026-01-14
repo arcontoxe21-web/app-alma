@@ -1900,7 +1900,7 @@ async function getVetAIResponse(q) {
         async handleInstall() {
             if (!this.deferredPrompt) {
                 // iOS Handling check
-                if (this.isIos()) {
+                if (this.isIos) {
                     document.getElementById('ios-install-modal').classList.remove('hidden');
                     return;
                 }

@@ -1,3 +1,5 @@
+const CACHE_NAME = 'alma-elite-v8';
+
 const ASSETS = [
     './',
     './index.html',

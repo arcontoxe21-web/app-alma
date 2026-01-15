@@ -646,9 +646,8 @@ textarea:focus {
   display: flex;
   gap: 12px;
   margin-bottom: 30px;
-  overflow-x: auto;
-  padding-bottom: 5px;
-  scrollbar-width: none;
+  flex-wrap: wrap; /* WRAP para ver todos */
+  justify-content: center; /* Centrado */
 }
 
 .filter-scroll-container::-webkit-scrollbar {

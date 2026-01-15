@@ -331,6 +331,13 @@
                 <button class="filter-chip" onclick="filterCatalog('urgent', this)">
                     <i class="fa-solid fa-star" style="color: #FFD700;"></i> Prioridad
                 </button>
+                <button class="filter-chip" onclick="filterCatalog('donate', this)"
+                    style="background: rgba(16, 251, 186, 0.1); color: var(--primary); border: 1px solid var(--primary);">
+                    <i class="fa-solid fa-heart"></i> Donar
+                </button>
+            </div>
+            <div id="donation-container" style="display: none; padding-bottom: 30px;">
+                <!-- Donation UI injected via JS -->
             </div>
             <div id="full-catalog-list"></div>
         </section>
@@ -448,11 +455,15 @@
                 <div id="radar-map"
                     style="height: 400px; border-radius: 32px; background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.05);">
                 </div>
-                <div style="margin-top: 25px;">
-                    <h3 style="font-size: 18px; font-weight: 800; margin-bottom: 15px;">Alertas de la Comunidad</h3>
-                    <div id="radar-alerts-list"></div>
+                <div id="alert-list-container" style="margin-top: 25px;">
+                    <h3 style="font-size: 16px; font-weight: 800; margin-bottom: 20px; letter-spacing: 0.5px;">Alertas
+                        de la Comunidad</h3>
+                    <div id="community-alerts-list" style="display: flex; flex-direction: column; gap: 15px;">
+                        <!-- Alerts Injected via JS -->
+                    </div>
                 </div>
             </div>
+
         </section>
 
         <!-- Forum Screen -->
@@ -524,13 +535,15 @@
                         </button>
                     </div>
                     <div style="display: flex; gap: 10px; margin-top: 15px;">
-                        <button class="social-tab-new active" onclick="switchSocialTab('heroes')"
+                        <button class="social-tab-new active" data-tab="heroes" onclick="switchSocialTab('heroes')"
                             style="flex:1; padding:10px; background:#222; color:white; border:1px solid #444; border-radius:8px; font-weight:bold;">HÉROES</button>
-                        <button class="social-tab-new" onclick="switchSocialTab('chat')"
+                        <button class="social-tab-new" data-tab="chat" onclick="switchSocialTab('chat')"
                             style="flex:1; padding:10px; background:#222; color:gray; border:1px solid #444; border-radius:8px; font-weight:bold;">CHAT</button>
-                        <button class="social-tab-new" onclick="switchSocialTab('missions')"
+                        <button class="social-tab-new" data-tab="missions" onclick="switchSocialTab('missions')"
                             style="flex:1; padding:10px; background:#222; color:gray; border:1px solid #444; border-radius:8px; font-weight:bold;">MISIONES</button>
-                        <button class="social-tab-new" onclick="switchSocialTab('success')"
+                        <button class="social-tab-new" data-tab="events" onclick="switchSocialTab('events')"
+                            style="flex:1; padding:10px; background:#222; color:gray; border:1px solid #444; border-radius:8px; font-weight:bold;">EVENTOS</button>
+                        <button class="social-tab-new" data-tab="success" onclick="switchSocialTab('success')"
                             style="flex:1; padding:10px; background:#222; color:gray; border:1px solid #444; border-radius:8px; font-weight:bold;">HISTORIAS</button>
                     </div>
                 </div>
@@ -585,8 +598,12 @@
         <script src="data.js"></script>
         <!-- Auth System -->
         <script src="auth.js"></script>
+        <!-- SOS Module -->
+        <script src="sos-module.js"></script>
         <!-- Navigation System -->
         <script src="nav.js"></script>
+        <!-- SOS Module (GPS & Maps) -->
+        <script src="sos-module.js"></script>
         <!-- Main App -->
         <script type="module" src="./main.js"></script>
 </body>

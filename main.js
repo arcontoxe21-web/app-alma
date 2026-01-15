@@ -1,5 +1,8 @@
 import { getVetResponse, initVetSession } from './services/gemini.js';
 
+// --- GLOBAL MAP VARIABLES (must be declared early to avoid TDZ) ---
+let rescueMap, rescueMarker, radarMap;
+
 /* --- AUTHENTICATION MODULE v2.0 --- */
 const Auth = {
     user: null,
@@ -203,47 +206,95 @@ window.Auth = Auth;
 const animals = window.animals || [];
 
 
-/* --- CATALOG FILTERS --- */
-window.filterCatalog = (filter, btn) => {
-    // 1. Update Buttons
-    if (btn) {
-        document.querySelectorAll('.filter-chip').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+// --- CATALOG LOGIC ---
+
+function filterCatalog(category, btnElement) {
+    // 1. Update UI Filters
+    if (btnElement) {
+        document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+        btnElement.classList.add('active');
     }
 
-    // 2. Filter Logic
-    const container = document.getElementById('full-catalog-list');
-    if (!container) return;
+    const list = document.getElementById('full-catalog-list');
+    const donationContainer = document.getElementById('donation-container');
 
-    container.innerHTML = '';
-
-    let filtered = animals;
-    if (filter === 'dog') {
-        filtered = animals.filter(a => a.type === 'dog');
-    } else if (filter === 'cat') {
-        filtered = animals.filter(a => a.type === 'cat');
-    } else if (filter === 'urgent') {
-        filtered = animals.filter(a => a.status === 'Prioridad' || a.status === 'Urgente');
+    // Handle 'donate' view separate from animal list
+    if (category === 'donate') {
+        if (list) list.style.display = 'none';
+        if (donationContainer) {
+            donationContainer.style.display = 'block';
+            renderDonationUI(donationContainer);
+        }
+        return;
     }
 
-    // 3. Render
+    // Handle normal animal views
+    if (list) list.style.display = 'grid'; // Restore grid
+    if (donationContainer) donationContainer.style.display = 'none';
+
+    if (!list) return;
+    list.innerHTML = '';
+
+    const filtered = category === 'all' ? animals : animals.filter(a => a.type === category || (category === 'urgent' && a.urgent));
+
     if (filtered.length === 0) {
-        container.innerHTML = `
-            <div style="text-align:center; padding:40px; color:var(--text-muted);">
-                <i class="fa-solid fa-paw" style="font-size:30px; margin-bottom:15px; opacity:0.3;"></i>
-                <p>No hay animales en esta categoría por ahora.</p>
-            </div>
-        `;
+        list.innerHTML = `<div style="grid-column: 1/-1; text-align:center; padding: 40px; color: gray;">No hay animales en esta categoría.</div>`;
     } else {
-        filtered.forEach(a => container.appendChild(createAnimalCard(a)));
+        filtered.forEach(a => {
+            list.appendChild(createAnimalCard(a));
+        });
     }
-};
+}
+
+// Expose filterCatalog globally for HTML onclicks
+window.filterCatalog = filterCatalog;
 
 const posts = window.posts || [
     { id: 1, author: 'Marta Soler', text: 'MAXIMUS hoy nos ha dado una lección de coraje.', img: animals[0]?.imageUrl, likes: 45, time: '1h' },
     { id: 2, author: 'Refugio Alma', text: 'Nuevas llegadas al santuario.', img: animals[1]?.imageUrl, likes: 89, time: '3h' }
 ];
 
+
+/* --- DONATION UI --- */
+function renderDonationUI(container) {
+    container.innerHTML = `
+        <div class="glass-card" style="padding: 30px; text-align: center; border: 1px solid rgba(16, 251, 186, 0.2); background: linear-gradient(135deg, rgba(8,8,8,0.95), rgba(20,20,20,0.9)); margin-bottom: 25px;">
+            <div style="width: 80px; height: 80px; background: rgba(16, 251, 186, 0.1); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; box-shadow: 0 0 20px rgba(16, 251, 186, 0.1);">
+                <i class="fa-solid fa-hand-holding-heart" style="font-size: 32px; color: var(--primary);"></i>
+            </div>
+            <h3 style="font-size: 24px; font-weight: 900; margin-bottom: 10px;">Tu Ayuda Salva Vidas</h3>
+            <p style="color: var(--text-muted); font-size: 15px; line-height: 1.6; margin-bottom: 25px;">Cada euro se destina íntegramente a tratamientos veterinarios y alimentación de rescates críticos.</p>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 25px;">
+                <button onclick="window.location.href='#'" style="padding: 15px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 16px; color: white; font-weight: 700; cursor: pointer; transition: all 0.2s;" onmouseover="this.style.background='rgba(255,255,255,0.1)'" onmouseout="this.style.background='rgba(255,255,255,0.05)'">
+                    5€ <span style="font-size: 10px; opacity: 0.7;">/ mes</span>
+                </button>
+                <button onclick="window.location.href='#'" style="padding: 15px; background: var(--primary); color: #000; border: none; border-radius: 16px; font-weight: 800; cursor: pointer; box-shadow: 0 5px 15px rgba(16, 251, 186, 0.3);">
+                    15€ <span style="font-size: 10px; opacity: 0.7;">/ mes</span>
+                </button>
+            </div>
+
+            <button class="btn-primary" style="width: 100%; border-radius: 18px; padding: 18px; font-size: 16px;" onclick="window.open('https://paypal.me/almarescue', '_blank')">
+                <i class="fa-brands fa-paypal" style="margin-right: 10px;"></i> Donación Puntual
+            </button>
+            <p style="font-size: 11px; color: var(--text-dim); margin-top: 15px;">🔒 Pago seguro vía PayPal / Stripe</p>
+        </div>
+
+        <h4 style="font-size: 14px; font-weight: 800; margin-bottom: 15px; color: var(--text-muted); letter-spacing: 1px;">IMPACTO REAL</h4>
+        <div style="display: flex; gap: 15px; overflow-x: auto; padding-bottom: 10px;">
+            <div style="min-width: 200px; background: var(--bg-surface); padding: 15px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05);">
+                <div style="font-size: 24px; font-weight: 900; color: var(--accent); margin-bottom: 5px;">1.400€</div>
+                <div style="font-size: 12px; color: white; font-weight: 700;">Operación de 'Tobby'</div>
+                <div style="font-size: 11px; color: var(--text-muted);">Cubierto al 100%</div>
+            </div>
+             <div style="min-width: 200px; background: var(--bg-surface); padding: 15px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.05);">
+                <div style="font-size: 24px; font-weight: 900; color: var(--danger); margin-bottom: 5px;">320 sacos</div>
+                <div style="font-size: 12px; color: white; font-weight: 700;">Pienso Mensual</div>
+                <div style="font-size: 11px; color: var(--text-muted);">Cubierto al 85%</div>
+            </div>
+        </div>
+    `;
+}
 
 /* --- UI TOOLKIT --- */
 function showToast(message, type = 'info') {
@@ -255,12 +306,12 @@ function showToast(message, type = 'info') {
     }
 
     const toast = document.createElement('div');
-    toast.className = `toast ${type}`;
+    toast.className = `toast ${type} `;
     const icon = type === 'success' ? 'fa-check-circle' : (type === 'error' ? 'fa-exclamation-circle' : 'fa-info-circle');
     toast.innerHTML = `
-        <i class="fa-solid ${icon}"></i>
-        <span style="font-size: 14px; font-weight: 600;">${message}</span>
-    `;
+            < i class="fa-solid ${icon}" ></i >
+                <span style="font-size: 14px; font-weight: 600;">${message}</span>
+        `;
 
     container.appendChild(toast);
 
@@ -313,20 +364,22 @@ const Router = {
                 window.switchSocialTab('heroes');
             }
         }
+
+        // Force Rescue/SOS Section Init
+        if (screenId === 'rescue') {
+            console.log("📍 Router: Entering Rescue Section...");
+            // Llamar inmediatamente y con delay para asegurar inicialización
+            if (typeof window.initSOSSystem === 'function') {
+                console.log("📍 Router: Calling initSOSSystem immediately");
+                window.initSOSSystem();
+            } else {
+                console.error("❌ Router: window.initSOSSystem not found!");
+            }
+        }
     }
 };
 
-// Hacer Router y funciones accesibles globalmente
-window.Router = Router;
-window.createAnimalCard = createAnimalCard;
-window.showDetail = showDetail;
-window.initRescueMap = initRescueMap;
-window.initRadarMap = initRadarMap;
-window.switchSocialTab = switchSocialTab;
-window.renderHomeNews = renderHomeNews;
-window.renderCatalog = () => filterCatalog('all');
-window.renderCommunity = () => switchSocialTab('heroes');
-window.LocationManager = LocationManager;
+// Exports moved to end of file to avoid TDZ errors
 
 
 
@@ -335,7 +388,7 @@ function createAnimalCard(animal) {
     const div = document.createElement('div');
     div.className = 'animal-card-dark';
     div.innerHTML = `
-    <div class="card-img-container">
+            <div class="card-img-container">
       <img src="${animal.imageUrl}" loading="lazy">
       <div style="position: absolute; top: 16px; left: 16px;">
         <span class="badge-elite">${animal.status}</span>
@@ -348,7 +401,7 @@ function createAnimalCard(animal) {
         ${animal.attributes.map(a => `<span class="pill-tag">${a}</span>`).join('')}
       </div>
     </div>
-  `;
+        `;
     div.onclick = () => showDetail(animal);
     return div;
 }
@@ -356,7 +409,7 @@ function createAnimalCard(animal) {
 function showDetail(animal) {
     const screen = document.getElementById('screen-detail');
     screen.innerHTML = `
-    <div style="position: relative; height: 50vh;">
+            < div style = "position: relative; height: 50vh;" >
       <img src="${animal.imageUrl}" style="width: 100%; height: 100%; object-fit: cover; filter: brightness(0.6);">
       <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(transparent, var(--bg-dark));"></div>
       <button id="close-detail" style="position: absolute; top: 40px; left: 24px; width: 50px; height: 50px; border-radius: 18px; border: 1px solid rgba(255,255,255,0.1); background: rgba(0,0,0,0.5); backdrop-filter: blur(10px); color: white; cursor: pointer;">
@@ -397,7 +450,7 @@ function showDetail(animal) {
 
         <button class="btn-noir" style="height: 70px;">CONECTAR CON ${animal.name}</button>
     </div>
-  `;
+        `;
     Router.navigate('detail');
     document.getElementById('close-detail').onclick = () => Router.navigate('catalog');
 }
@@ -463,7 +516,7 @@ const LocationManager = {
             const resp = await fetch('https://ipapi.co/json/');
             const data = await resp.json();
             if (data.latitude && data.longitude && !this.pos) {
-                console.log(`📍 IP Fallback Éxito (${reason})`);
+                console.log(`📍 IP Fallback Éxito(${reason})`);
                 const ipPos = [data.latitude, data.longitude];
                 this.pos = ipPos;
                 this.status = 'success';
@@ -519,7 +572,7 @@ const LocationManager = {
         this.error = null;
         localStorage.setItem('alma_last_pos', JSON.stringify(newPos));
 
-        console.log(`📍 Posición actualizada (${source}):`, newPos);
+        console.log(`📍 Posición actualizada(${source}): `, newPos);
         this.removeOverlay();
         this.syncUI();
     },
@@ -542,7 +595,7 @@ const LocationManager = {
 
         // Mostrar overlay de error manual
         this.updateStatusOverlay(`
-            <i class="fa-solid fa-map-location-dot" style="font-size:30px; color:var(--danger); margin-bottom:15px;"></i>
+            < i class="fa-solid fa-map-location-dot" style = "font-size:30px; color:var(--danger); margin-bottom:15px;" ></i >
             <span>${msg}</span>
             <p style="font-size:11px; color:#aaa; margin-top:5px; text-align:center;">${action}</p>
             <button onclick="LocationManager.enableManualMode()" class="btn-manual-override">
@@ -571,7 +624,7 @@ const LocationManager = {
             if (display) {
                 // Si es manual, mostrar icono diferente
                 const icon = this.status === 'manual' || this.manuallyMoved ? 'fa-hand-pointer' : 'fa-location-crosshairs';
-                display.innerHTML = `<i class="fa-solid ${icon}" style="color: var(--primary); margin-right: 8px;"></i> ${this.pos[0].toFixed(5)}, ${this.pos[1].toFixed(5)}`;
+                display.innerHTML = `< i class="fa-solid ${icon}" style = "color: var(--primary); margin-right: 8px;" ></i > ${this.pos[0].toFixed(5)}, ${this.pos[1].toFixed(5)} `;
             }
         }
 
@@ -618,20 +671,20 @@ const LocationManager = {
         const overlay = document.createElement('div');
         overlay.id = 'gps-status-overlay';
         overlay.style = `
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.85); backdrop-filter: blur(4px);
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            z-index: 2000; border-radius: 24px; color: white;
-            font-size: 14px; font-weight: 700; padding: 20px;
-            transition: all 0.3s ease;
+        position: absolute; top: 0; left: 0; width: 100 %; height: 100 %;
+        background: rgba(0, 0, 0, 0.85); backdrop - filter: blur(4px);
+        display: flex; flex - direction: column; justify - content: center; align - items: center;
+        z - index: 2000; border - radius: 24px; color: white;
+        font - size: 14px; font - weight: 700; padding: 20px;
+        transition: all 0.3s ease;
         `;
 
         if (!isError) {
             overlay.innerHTML = `
-                <i class="fa-solid fa-satellite-dish fa-beat" style="font-size:30px; color:var(--primary); margin-bottom:15px; --fa-animation-duration: 2s;"></i>
+            < i class="fa-solid fa-satellite-dish fa-beat" style = "font-size:30px; color:var(--primary); margin-bottom:15px; --fa-animation-duration: 2s;" ></i >
                 <span>${htmlContent}</span>
                 <p style="font-size:10px; color:var(--text-muted); margin-top:10px;">Mantén la app abierta...</p>
-            `;
+        `;
         } else {
             overlay.innerHTML = htmlContent;
         }
@@ -648,9 +701,9 @@ const LocationManager = {
     }
 };
 
-let rescueMap, rescueMarker, radarMap;
 
-const activeAlerts = [
+// Usar window.sosAlerts si existe (de sos-module.js), sino usar default
+const activeAlerts = window.sosAlerts || [
     { id: 'al-1', type: 'Gato', status: 'En espera', loc: [40.4233, -3.6912], address: 'Calle de Hortaleza, 48, Madrid', title: 'Gato atrapado en cornisa', user: 'Ana M.', messages: ['ALERTA DE CAMPO', 'Se encuentra en el tercer piso, parece asustado.', '¿Alguien tiene una escalera?', 'Estoy cerca, llego en 5 min.'] },
     { id: 'al-2', type: 'Perro', status: 'Coordinando', loc: [40.4100, -3.7150], address: 'C. de Toledo, 72, Madrid', title: 'Perro herido en parque', user: 'Marcos T.', messages: ['ALERTA DE CAMPO', 'Cojea de la pata trasera derecha, está muy tranquilo.', 'Ya hemos llamado al veterinario.', 'Necesitamos transporte.'] }
 ];
@@ -665,7 +718,7 @@ function initRescueTabs() {
             tab.classList.add('active');
 
             document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
-            document.getElementById(`tab-${id}`).style.display = 'block';
+            document.getElementById(`tab - ${id} `).style.display = 'block';
 
             if (id === 'radar') setTimeout(initRadarMap, 150);
             if (id === 'report') {
@@ -699,7 +752,9 @@ function initRescueMap() {
     console.log("📍 Map Engine: Inicializando Leaflet...");
 
     // Posición inicial: O la última conocida o Default Madrid
-    const startPos = LocationManager.pos || [40.4168, -3.7038];
+    // MUST use window.LocationManager to avoid TDZ (LocationManager is defined after Router)
+    const lm = window.LocationManager;
+    const startPos = (lm && lm.pos) ? lm.pos : [40.4168, -3.7038];
     rescueMap = L.map('rescue-map', { zoomControl: false, attributionControl: false }).setView(startPos, 15);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(rescueMap);
 
@@ -725,32 +780,32 @@ function initRescueMap() {
         const style = document.createElement('style');
         style.id = 'gps-styles';
         style.textContent = `
-            .btn-manual-override {
-                margin-top: 15px;
-                background: rgba(255,255,255,0.1);
-                border: 1px solid var(--danger);
-                color: white;
-                padding: 10px 20px;
-                border-radius: 12px;
-                font-weight: 700;
-                font-size: 12px;
-                cursor: pointer;
-                transition: all 0.2s;
-            }
-            .btn-manual-override:active {
-                background: var(--danger);
-                transform: scale(0.95);
-            }
+            .btn - manual - override {
+            margin - top: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--danger);
+            color: white;
+            padding: 10px 20px;
+            border - radius: 12px;
+            font - weight: 700;
+            font - size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+            .btn - manual - override:active {
+            background: var(--danger);
+            transform: scale(0.95);
+        }
         `;
         document.head.appendChild(style);
     }
 
-    // Inicializar UI con estado actual
-    LocationManager.syncUI();
+    // Inicializar UI con estado actual (safe check)
+    if (lm && lm.syncUI) lm.syncUI();
 
     // Si estábamos buscando y no hay resultados, restaurar overlay
-    if (LocationManager.status === 'locating') {
-        LocationManager.updateStatusOverlay("Recuperando señal...");
+    if (lm && lm.status === 'locating' && lm.updateStatusOverlay) {
+        lm.updateStatusOverlay("Recuperando señal...");
     }
 }
 
@@ -798,19 +853,24 @@ function renderAlertList() {
     const list = document.getElementById('radar-alerts-list');
     if (!list) return;
     list.innerHTML = activeAlerts.map(a => `
-        <div class="glass-card" style="display: flex; gap: 15px; align-items: center; padding: 18px; margin-bottom: 12px; border: 1px solid rgba(16,251,186,0.1); cursor:pointer;" onclick="window.enterRescueChat('${a.id}')">
+            < div class="glass-card" style = "display: flex; gap: 15px; align-items: center; padding: 18px; margin-bottom: 12px; border: 1px solid rgba(16,251,186,0.1); cursor:pointer;" onclick = "window.enterRescueChat('${a.id}')" >
             <div class="pulse-marker" style="width: 12px; height: 12px; background: ${a.type === 'Gato' ? 'var(--primary)' : 'var(--danger)'}; border-radius: 50%;"></div>
             <div style="flex: 1;">
                 <h5 style="font-size: 15px; font-weight: 800;">${a.title}</h5>
                 <p style="font-size: 12px; color: var(--text-muted);">${a.type} • ${a.status} ${a.distance ? `• a ${a.distance} km` : ''}</p>
             </div>
             <i class="fa-solid fa-chevron-right" style="color: var(--text-dim); font-size: 12px;"></i>
-        </div>
-    `).join('');
+        </div >
+            `).join('');
 }
 
 window.enterRescueChat = (alertId) => {
-    const alert = activeAlerts.find(a => a.id === alertId);
+    // Buscar en la fuente global actualizada (sos-module.js)
+    const source = window.sosAlerts || activeAlerts;
+    const alert = source.find(a => a.id === alertId);
+
+    console.log("💬 enterRescueChat:", alertId, alert ? "Encontrada" : "No encontrada", "en array de tamaño:", source.length);
+
     if (!alert) {
         console.error("Alert not found:", alertId);
         return;
@@ -821,8 +881,8 @@ window.enterRescueChat = (alertId) => {
     screen.scrollTop = 0;
 
     screen.innerHTML = `
-        <div style="height: 100%; display: flex; flex-direction: column; background: #000;">
-            <!-- Header Operativo Reforzado -->
+            <div style="height: 100%; display: flex; flex-direction: column; background: #000;">
+            <!--Header Operativo Reforzado-->
             <header style="padding: 55px 25px 25px; background: rgba(21, 21, 21, 0.98); backdrop-filter: blur(30px); border-bottom: 1px solid rgba(16,251,186,0.15); display: flex; align-items: center; gap: 20px; position: sticky; top: 0; z-index: 1000;">
                 <button onclick="Router.navigate('rescue')" style="background: var(--bg-surface); border: 1px solid rgba(255,255,255,0.1); color: white; width: 50px; height: 50px; border-radius: 18px; display: flex; align-items: center; justify-content: center; cursor: pointer; transition: all 0.2s; flex-shrink: 0;" onmousedown="this.style.transform='scale(0.9)'" onmouseup="this.style.transform='scale(1)'">
                     <i class="fa-solid fa-chevron-left" style="font-size: 20px;"></i>
@@ -842,6 +902,12 @@ window.enterRescueChat = (alertId) => {
                 <div style="padding: 25px;">
                     <div id="mini-map-${alert.id}" style="height: 180px; border-radius: 24px; margin-bottom: 25px; border: 1px solid rgba(255,255,255,0.05); box-shadow: 0 10px 30px rgba(0,0,0,0.5);"></div>
                     
+                    ${alert.photoUrl ? `
+                    <div style="margin-bottom: 25px; border-radius: 24px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
+                        <img src="${alert.photoUrl}" style="width: 100%; display: block;" alt="Evidencia SOS">
+                    </div>
+                    ` : ''}
+
                     <div class="glass-card" style="padding: 24px; border: 1px solid rgba(16,251,186,0.1); background: rgba(16,251,186,0.02); margin-bottom: 0;">
                         <h4 style="font-size: 11px; color: var(--primary); font-weight: 900; letter-spacing: 2px; margin-bottom: 15px;">INFORME DE CAMPO</h4>
                         <div style="display: flex; flex-direction: column; gap: 10px;">
@@ -869,33 +935,34 @@ window.enterRescueChat = (alertId) => {
                 </div>
             </div>
 
-            <!-- Entrada de Mensajes Flotante -->
+            <!--Entrada de Mensajes Flotante-->
             <div class="chat-input-container" style="background: rgba(10,10,10,0.98); backdrop-filter: blur(30px); padding: 20px 25px 45px; border-top: 1px solid rgba(255,255,255,0.08);">
                 <div style="display: flex; gap: 12px;">
                     <input type="text" id="msg-input" placeholder="Enviar informe al equipo..." style="flex: 1; background: var(--bg-surface); border: 1px solid rgba(16,251,186,0.1); padding: 18px 20px; border-radius: 20px; color: white; font-family: var(--font-body); font-size: 14px;">
-                    <button onclick="window.sendMessage('${alert.id}')" style="width: 58px; height: 58px; border-radius: 20px; background: var(--primary); border: none; color: #000; display:flex; align-items:center; justify-content:center; box-shadow: var(--shadow-neon);">
-                        <i class="fa-solid fa-paper-plane" style="font-size: 20px;"></i>
-                    </button>
+                        <button onclick="window.sendMessage('${alert.id}')" style="width: 58px; height: 58px; border-radius: 20px; background: var(--primary); border: none; color: #000; display:flex; align-items:center; justify-content:center; box-shadow: var(--shadow-neon);">
+                            <i class="fa-solid fa-paper-plane" style="font-size: 20px;"></i>
+                        </button>
                 </div>
             </div>
         </div>
-    `;
+            `;
 
     // Cambiar de pantalla
     Router.navigate('chat');
 
     // Renderizar mini mapa con delay para asegurar que el DOM existe
     setTimeout(() => {
+        // CORRECCIÓN: Eliminar espacios en el ID
         const miniContainer = document.getElementById(`mini-map-${alert.id}`);
         if (!miniContainer) return;
 
-        const miniMap = L.map(`mini-map-${alert.id}`, { zoomControl: false, attributionControl: false, dragging: true }).setView(alert.loc, 15);
+        const miniMap = L.map(`mini-map-${alert.id}`, { zoomControl: false, attributionControl: false, dragging: true }).setView(alert.loc || alert.position, 15);
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(miniMap);
-        L.marker(alert.loc).addTo(miniMap);
+        L.marker(alert.loc || alert.position).addTo(miniMap);
 
         // Scroll automático al final
         const scroller = document.getElementById('chat-content-scroller');
-        scroller.scrollTop = scroller.scrollHeight;
+        if (scroller) scroller.scrollTop = scroller.scrollHeight;
     }, 450);
 };
 
@@ -931,7 +998,7 @@ window.sendMessage = (alertId) => {
 
 function updateLocationDisplay(lat, lng) {
     const display = document.getElementById('location-display');
-    if (display) display.innerHTML = `<i class="fa-solid fa-location-dot" style="color: var(--primary); margin-right: 8px;"></i> ${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    if (display) display.innerHTML = `< i class="fa-solid fa-location-dot" style = "color: var(--primary); margin-right: 8px;" ></i > ${lat.toFixed(5)}, ${lng.toFixed(5)} `;
 }
 
 // (Lógica SOS extraída al nivel de módulo)
@@ -971,44 +1038,44 @@ async function searchAddress() {
 
 window.searchAddress = searchAddress;
 
-function handleLocateMe() {
-    const btn = document.getElementById('btn-locate-me');
-    if (!btn) return;
-
-    const originalIcon = btn.innerHTML;
-    btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
-    btn.disabled = true;
-
-    // Ensure map is rendered before locating
-    if (rescueMap) rescueMap.invalidateSize();
-
-    LocationManager.forceLocate()
-        .then(() => {
-            btn.innerHTML = originalIcon;
-            btn.disabled = false;
-            showToast("Ubicación actualizada", "success");
-        })
-        .catch(err => {
-            console.error("Fallo manual GPS:", err);
-            let msg = "No se pudo obtener señal.";
-            let detail = "Mueve el pin o usa el buscador.";
-
-            if (err.code === 1) {
-                msg = "Permiso denegado.";
-                detail = "Actívalo en el icono del candado de tu navegador.";
-            } else if (err.code === 2) {
-                msg = "Señal no disponible.";
-                detail = "Revisa el WiFi o usa el buscador.";
-            } else if (err.code === 3) {
-                msg = "Tiempo agotado.";
-                detail = "Prueba de nuevo cerca de una ventana.";
-            }
-
-            showToast(`${msg} ${detail}`, "error");
-            btn.innerHTML = originalIcon;
-            btn.disabled = false;
-        });
-}
+// function handleLocateMe() {
+//     const btn = document.getElementById('btn-locate-me');
+//     if (!btn) return;
+// 
+//     const originalIcon = btn.innerHTML;
+//     btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
+//     btn.disabled = true;
+// 
+//     // Ensure map is rendered before locating
+//     if (rescueMap) rescueMap.invalidateSize();
+// 
+//     LocationManager.forceLocate()
+//         .then(() => {
+//             btn.innerHTML = originalIcon;
+//             btn.disabled = false;
+//             showToast("Ubicación actualizada", "success");
+//         })
+//         .catch(err => {
+//             console.error("Fallo manual GPS:", err);
+//             let msg = "No se pudo obtener señal.";
+//             let detail = "Mueve el pin o usa el buscador.";
+// 
+//             if (err.code === 1) {
+//                 msg = "Permiso denegado.";
+//                 detail = "Actívalo en el icono del candado de tu navegador.";
+//             } else if (err.code === 2) {
+//                 msg = "Señal no disponible.";
+//                 detail = "Revisa el WiFi o usa el buscador.";
+//             } else if (err.code === 3) {
+//                 msg = "Tiempo agotado.";
+//                 detail = "Prueba de nuevo cerca de una ventana.";
+//             }
+// 
+//             showToast(`${msg} ${detail}`, "error");
+//             btn.innerHTML = originalIcon;
+//             btn.disabled = false;
+//         });
+// }
 
 /* --- PHOTO EVIDENCE LOGIC --- */
 window.handlePhotoSelect = (input) => {
@@ -1032,31 +1099,32 @@ window.clearPhoto = () => {
 }
 
 
+/*
 function handleRescueSubmit() {
     console.log("Evento 'Enviar Alerta' capturado.");
     const type = document.getElementById('rescue-type').value;
     const condition = document.getElementById('rescue-condition').value.trim();
     const photoInput = document.getElementById('rescue-photo');
     const hasPhoto = photoInput.files && photoInput.files[0];
-
+ 
     if (!rescueMarker) {
         showToast("El mapa no se ha cargado correctamente.", "error");
         return;
     }
-
+ 
     const pos = rescueMarker.getLatLng();
-
+ 
     if (!condition) {
         showToast("Describe el estado del animal para que los voluntarios puedan ayudar.", "info");
         document.getElementById('rescue-condition').focus();
         return;
     }
-
+ 
     const btn = document.getElementById('btn-submit-rescue');
     const originalText = btn.innerHTML;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> DESPLEGANDO SOS...';
     btn.disabled = true;
-
+ 
     setTimeout(() => {
         const newAlert = {
             id: `SOS-${Date.now().toString().slice(-4)}`,
@@ -1072,11 +1140,11 @@ function handleRescueSubmit() {
             distance: '0.0'
         };
         activeAlerts.unshift(newAlert);
-
+ 
         btn.innerHTML = '<i class="fa-solid fa-check"></i> ALERTA ENVIADA';
         btn.style.background = 'var(--primary)';
         btn.style.color = '#000';
-
+ 
         setTimeout(() => {
             showToast("¡Alerta SOS publicada con éxito!", "success");
             btn.innerHTML = originalText;
@@ -1084,28 +1152,31 @@ function handleRescueSubmit() {
             btn.style.color = '#fff';
             btn.disabled = false;
             document.getElementById('rescue-condition').value = '';
-
+ 
             // Ir al radar para ver la nueva alerta
             const radarTab = document.querySelector('.rescue-tab[data-tab="radar"]');
             if (radarTab) radarTab.click();
         }, 800);
     }, 1000);
 }
+*/
 
 
 /* --- INITIALIZATION --- */
 /* --- INITIALIZATION --- */
 async function init() {
     Router.init();
-    initRescueTabs();
-    LocationManager.init();
+    // Tabs are now handled by sos-module.js via setupRescueTabs()
+    // initRescueTabs();
+    // LocationManager.init(); // CONFLICTO: Desactivado para usar sos-module.js
 
-
-    // Listener para inicialización de mapas cuando se entra en la pantalla de rescate
+    // Auth Init
+    Auth.init();
+    // The following listeners are kept but use sos-module.js functions via window.*
+    /*
     document.querySelectorAll('.nav-link').forEach(link => {
         link.addEventListener('click', () => {
             if (link.getAttribute('data-screen') === 'rescue') {
-                // Pequeño delay para dejar que la pantalla se vuelva visible y Leaflet tome bien las medidas
                 setTimeout(() => {
                     const activeTab = document.querySelector('.rescue-tab.active');
                     if (activeTab) {
@@ -1117,18 +1188,20 @@ async function init() {
             }
         });
     });
-
-    // Forzar inicialización si ya estamos en la pantalla (útil para recargas)
+ 
     if (Router.activeScreen === 'rescue') {
         setTimeout(initRescueMap, 300);
     }
+    */
 
+    /*
     // Botones de acción SOS
     const submitBtn = document.getElementById('btn-submit-rescue');
     if (submitBtn) submitBtn.onclick = handleRescueSubmit;
-
+ 
     const locateBtn = document.getElementById('btn-locate-me');
     if (locateBtn) locateBtn.onclick = handleLocateMe;
+    */
 
     /* --- VET AI LOGIC --- */
     window.sendVetMessage = async (predefinedText) => {
@@ -1151,22 +1224,22 @@ async function init() {
         const typing = document.createElement('div');
         typing.className = 'chat-bubble other';
         typing.id = 'ai-typing-indicator';
-        typing.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Dra. Alma (v7.2) está escribiendo...';
+        typing.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Escribiendo...';
         chatContainer.appendChild(typing);
         chatContainer.scrollTop = chatContainer.scrollHeight;
 
         try {
             // Llamada REAL a la IA
-            const aiResponseHtml = await getVetResponse(text);
+            const aiResponseText = await getVetResponse(text);
 
             // Eliminar indicador de carga
             const typingIndicator = document.getElementById('ai-typing-indicator');
             if (typingIndicator) typingIndicator.remove();
 
-            // Renderizar respuesta
+            // Renderizar respuesta (Texto plano)
             const reply = document.createElement('div');
             reply.className = 'chat-bubble other';
-            reply.innerHTML = aiResponseHtml;
+            reply.innerText = aiResponseText; // Usar innerText para seguridad y simplicidad
             chatContainer.appendChild(reply);
             chatContainer.scrollTop = chatContainer.scrollHeight;
 
@@ -1208,16 +1281,17 @@ document.addEventListener('DOMContentLoaded', init);
 /* --- SOCIAL HUB ENGINE --- */
 
 function switchSocialTab(tabId) {
-    // 1. Update Tab UI (New Selector for Explicit Tabs)
+    // 1. Update Tab UI (Robust Selector)
     document.querySelectorAll('.social-tab-new').forEach(t => {
         t.style.background = '#222';
         t.style.color = 'gray';
         t.classList.remove('active');
     });
 
-    const activeBtn = Array.from(document.querySelectorAll('.social-tab-new')).find(btn => btn.innerText.toLowerCase().includes(tabId.substring(0, 4)));
+    // Select by strict data-tab match
+    const activeBtn = document.querySelector(`.social-tab-new[data-tab="${tabId}"]`);
     if (activeBtn) {
-        activeBtn.style.background = '#0a8e69'; // High contrast
+        activeBtn.style.background = '#0a8e69'; // Green Highlight
         activeBtn.style.color = 'white';
         activeBtn.classList.add('active');
     }
@@ -1234,11 +1308,79 @@ function switchSocialTab(tabId) {
         renderChat(container, 'general');
     } else if (tabId === 'success') {
         renderSuccessStories(container);
+    } else if (tabId === 'events') {
+        renderEventsFeed(container);
     }
 }
 
 window.switchSocialTab = switchSocialTab;
 
+
+function renderEventsFeed(container) {
+    const events = [
+        {
+            title: "Mercadillo Benéfico 'Patitas'",
+            date: "Sáb, 24 Oct • 10:00 AM",
+            location: "Plaza Mayor, Madrid",
+            img: "https://images.unsplash.com/photo-1555244162-803834f70033?q=80&w=1000&auto=format&fit=crop",
+            desc: "Stands de artesanía, comida vegana y adopción. Todo lo recaudado va para el refugio municipal.",
+            type: "Mercadillo"
+        },
+        {
+            title: "Taller: Primeros Auxilios Caninos",
+            date: "Dom, 25 Oct • 17:00 PM",
+            location: "Centro Cívico Norte",
+            img: "https://images.unsplash.com/photo-1576201836106-db1758fd1c97?q=80&w=1000&auto=format&fit=crop",
+            desc: "Aprende RCP básica y vendajes de emergencia con veterinarios expertos.",
+            type: "Educación"
+        },
+        {
+            title: "Gala 'Noche de los Gatos'",
+            date: "Vie, 30 Oct • 21:00 PM",
+            location: "Hotel Palace",
+            img: "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=1000&auto=format&fit=crop",
+            desc: "Cena benéfica de etiqueta. Subasta silenciosa de arte animalista.",
+            type: "Gala"
+        }
+    ];
+
+    container.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h3 style="font-size:20px; font-weight:800; color:white;">Agenda Solidaria</h3>
+            <span style="font-size:12px; color:var(--primary); font-weight:700;">Octubre</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 20px;">
+            ${events.map(event => `
+                <div class="glass-card" style="padding: 0; border-radius: 20px; overflow: hidden; border: 1px solid rgba(255,255,255,0.05); background: var(--bg-surface);">
+                    <div style="position: relative; height: 160px;">
+                        <img src="${event.img}" style="width: 100%; height: 100%; object-fit: cover;">
+                        <div style="position: absolute; top: 15px; right: 15px; background: rgba(0,0,0,0.7); backdrop-filter: blur(5px); color: white; padding: 5px 12px; border-radius: 12px; font-size: 11px; font-weight: 700; border: 1px solid rgba(255,255,255,0.2);">
+                            ${event.type}
+                        </div>
+                    </div>
+                    <div style="padding: 20px;">
+                        <div style="color: var(--primary); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px;">
+                            <i class="fa-regular fa-calendar" style="margin-right: 5px;"></i> ${event.date}
+                        </div>
+                        <h3 style="font-size: 18px; font-weight: 800; margin-bottom: 8px; line-height: 1.3; color:white;">${event.title}</h3>
+                        <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 15px; line-height: 1.5;">${event.desc}</p>
+                        <div style="display: flex; align-items: center; justify-content: space-between; border-top: 1px solid rgba(255,255,255,0.05); padding-top: 15px;">
+                            <span style="font-size: 12px; color: var(--text-dim); font-weight: 600;">
+                                <i class="fa-solid fa-location-dot" style="margin-right: 5px;"></i> ${event.location}
+                            </span>
+                            <button style="background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: pointer;">
+                                <i class="fa-solid fa-chevron-right" style="font-size: 12px;"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `).join('')}
+        </div>
+        <div style="text-align:center; margin-top:30px; margin-bottom: 20px;">
+             <button class="btn-noir" style="width:auto; padding: 0 25px; height: 45px; font-size: 13px;">Proponer Evento</button>
+        </div>
+    `;
+}
 
 const successStories = [
     {
@@ -1303,6 +1445,28 @@ function renderSuccessStories(container) {
 
 
 function renderHeroesFeed(container) {
+    const prizeHTML = `
+        <div style="border-radius: 30px; overflow: hidden; margin-bottom: 30px; box-shadow: 0 15px 40px rgba(0,0,0,0.5); background: var(--bg-surface);">
+            <div style="position: relative; height: 320px;">
+                <img src="prize-hoodie.png" style="width: 100%; height: 100%; object-fit: cover;">
+                <div style="position: absolute; top: 20px; right: 20px; background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255, 215, 0, 0.5); color: #FFD700; padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+                    <i class="fa-solid fa-trophy"></i> PREMIO DE TEMPORADA
+                </div>
+            </div>
+
+            <div style="padding: 25px; position: relative; z-index: 2;">
+                <h3 style="color: #FFD700; font-size: 13px; font-weight: 800; letter-spacing: 2px; margin-bottom: 8px; text-transform: uppercase;">Objetivo: 2000 XP</h3>
+                <h2 style="font-size: 24px; font-weight: 900; line-height: 1.2; margin-bottom: 12px; font-family: var(--font-display); color: white;">La Sudadera Oficial<br><span style="color: var(--primary);">"Guardián de Alma"</span></h2>
+                <p style="font-size: 14px; color: var(--text-muted); margin-bottom: 20px; line-height: 1.5;">Exclusiva para el héroe top del mes. Llévala con orgullo mientras salvas vidas.</p>
+                
+                <button class="btn-noir" style="background: white; color: black; font-weight: 800; border: none; width: 100%;">
+                    QUIERO PARTICIPAR <i class="fa-solid fa-arrow-right" style="margin-left: 8px;"></i>
+                </button>
+                <p style="font-size: 10px; color: var(--text-dim); margin-top: 15px; text-align: center;">* Los premios cambian cada mes. ¡Sigue ganando XP!</p>
+            </div>
+        </div>
+    `;
+
     const leaderboardHTML = `
         <div class="leaderboard-container">
             <div class="leader-profile">
@@ -1333,7 +1497,7 @@ function renderHeroesFeed(container) {
         { user: 'Roberto', action: 'Nuevo Padrino Elite', time: 'Hace 5 horas', icon: 'fa-medal', color: '#bf5af2', img: 'https://images.unsplash.com/photo-1579313262691-e490586e344e?q=80&w=200&auto=format&fit=crop' }
     ];
 
-    container.innerHTML = leaderboardHTML + '<h4 style="margin: 0 0 15px 5px; font-size:14px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Actividad Reciente</h4>' + events.map(e => `
+    container.innerHTML = prizeHTML + leaderboardHTML + '<h4 style="margin: 0 0 15px 5px; font-size:14px; color:var(--text-muted); text-transform:uppercase; letter-spacing:1px;">Actividad Reciente</h4>' + events.map(e => `
         <div class="feed-card">
             <img src="${e.img}" class="hero-avatar" alt="Avatar" style="object-fit:cover;" onerror="this.src='https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=200&auto=format&fit=crop'">
             <div style="flex:1;">
@@ -1547,44 +1711,130 @@ window.togglePointsGuide = () => {
 
 
 // Home News Renderer
+// Home News Renderer - EXPERIENCIA COMUNITARIA V2.1 (Refined & Centered)
 function renderHomeNews() {
     const container = document.getElementById('home-news-feed');
     if (!container) return;
 
-    const news = [
-        {
-            tag: 'LEGISLACIÓN',
-            title: 'Nueva Ley de Bienestar: ¿Tienes ya tu seguro?',
-            desc: 'Desde septiembre es obligatorio el seguro de responsabilidad civil para todos los perros. Evita multas de hasta 500€.',
-            img: 'https://images.unsplash.com/photo-1450778869180-41d0601e046e?q=80&w=1000&auto=format&fit=crop',
-            readTime: '2 min lectura'
-        },
-        {
-            tag: 'SALUD ESTACIONAL',
-            title: 'Alerta de Calor: Cuidado con las almohadillas',
-            desc: 'El asfalto alcanza 60°C hoy. La regla de oro: si quemas tu mano en 5s, quema sus patas. Pasea por la sombra.',
-            img: 'https://images.unsplash.com/photo-1599147576161-1db5e3d74c86?q=80&w=1000&auto=format&fit=crop',
-            readTime: 'Consejo rápido'
-        }
-    ];
+    // 1. FECHA Y SALUDO
+    const dateOptions = { weekday: 'long', day: 'numeric', month: 'long' };
+    const today = new Date().toLocaleDateString('es-ES', dateOptions);
+    const userName = window.Auth?.user?.name || 'Amigo';
 
-    container.innerHTML = news.map(n => `
-        <div class="news-card">
-            <div style="position:relative;">
-                <img src="${n.img}" class="news-image" alt="${n.title}">
-                <span class="news-tag">${n.tag}</span>
+    // 2. DATOS SIMULADOS
+    const stats = { adopted: 12, urgent: 3, volunteers: 45 };
+
+    // Contenido Rico - DISEÑO UNIFICADO Y CENTRADO
+    const dashboardHTML = `
+        <div style="padding: 0 20px; max-width: 600px; margin: 0 auto;">
+            
+            <!-- HEADER CENTRADO -->
+            <div style="text-align: center; margin-bottom: 30px; padding-top: 10px;">
+                <p style="color: var(--text-dim); font-size: 11px; text-transform: uppercase; letter-spacing: 2px; font-weight: 700; margin-bottom: 8px;">${today}</p>
+                <h2 style="font-size: 28px; font-family: var(--font-display); font-weight: 900; line-height: 1.1;">Hola, <span style="color: var(--primary);">${userName}</span></h2>
             </div>
-            <div class="news-content">
-                <h4 style="font-size:16px; font-weight:800; line-height:1.4; margin-bottom:8px; color:white;">${n.title}</h4>
-                <p style="font-size:13px; color:var(--text-muted); line-height:1.5; margin-bottom:12px;">${n.desc}</p>
-                
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span style="font-size:11px; color:var(--text-dim); font-weight:600;"><i class="fa-regular fa-clock"></i> ${n.readTime}</span>
-                    <button style="background:none; border:none; color:var(--primary); font-size:12px; font-weight:700; cursor:pointer;">LEER MÁS</button>
+
+            <!-- SECCIÓN 1: PULSO DE LA MANADA (Diseño Unificado) -->
+            <div class="glass-card" style="padding: 20px; border-radius: 24px; margin-bottom: 30px; border: 1px solid rgba(255,255,255,0.08); background: var(--bg-surface); display: flex; justify-content: space-around; text-align: center;">
+                <div>
+                    <h3 style="font-size: 22px; font-weight: 900; color: white; margin-bottom: 4px;">${stats.adopted}</h3>
+                    <p style="font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Adopciones</p>
+                </div>
+                <div style="width: 1px; background: rgba(255,255,255,0.1);"></div>
+                <div>
+                    <h3 style="font-size: 22px; font-weight: 900; color: var(--danger); margin-bottom: 4px;">${stats.urgent}</h3>
+                    <p style="font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Urgencias</p>
+                </div>
+                <div style="width: 1px; background: rgba(255,255,255,0.1);"></div>
+                 <div>
+                    <h3 style="font-size: 22px; font-weight: 900; color: #0a84ff; margin-bottom: 4px;">${stats.volunteers}</h3>
+                    <p style="font-size: 10px; color: var(--text-muted); font-weight: 700; text-transform: uppercase;">Voluntarios</p>
                 </div>
             </div>
+
+            <!-- SECCIÓN 2: PROTAGONISTA (Hero Card Limpia) -->
+            <div style="margin-bottom: 35px;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-bottom: 15px;">
+                    <h3 style="font-size: 14px; font-weight: 900; letter-spacing: 0.5px; margin: 0;">CASO DEL DÍA</h3>
+                    <span style="font-size: 11px; color: var(--primary); font-weight: 700; cursor: pointer;" onclick="Router.navigate('catalog')">Ver catálogo</span>
+                </div>
+                
+                <div class="news-card" style="position: relative; height: 360px; overflow: hidden; border-radius: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); cursor: pointer;" onclick="Router.navigate('catalog')">
+                    <img src="https://images.unsplash.com/photo-1548199973-03cce0bbc87b?q=80&w=1000&auto=format&fit=crop" style="width: 100%; height: 100%; object-fit: cover;" alt="Protagonista">
+                    <div style="position: absolute; bottom: 0; left: 0; width: 100%; padding: 30px; background: linear-gradient(to top, rgba(0,0,0,0.95) 10%, transparent);">
+                        <div style="background: var(--primary); color: #000; display: inline-flex; align-items: center; padding: 5px 12px; border-radius: 20px; font-size: 10px; font-weight: 900; margin-bottom: 12px; letter-spacing: 0.5px;">
+                            <i class="fa-solid fa-star" style="margin-right: 5px; font-size: 9px;"></i> DESTACADO
+                        </div>
+                        <h2 style="font-size: 32px; margin-bottom: 8px; font-weight: 900; font-family: var(--font-display); line-height: 1;">Bruno</h2>
+                        <p style="font-size: 15px; color: #ddd; line-height: 1.5; margin-bottom: 0;">Sobrevivió 3 días en una tubería. Ahora busca un rey para su sofá.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 0: PROMO (Premio del Mes) -->
+            <div style="margin-bottom: 35px; position: relative;">
+                <div style="height: 380px; border-radius: 32px; overflow: hidden; position: relative; box-shadow: 0 20px 50px rgba(16, 251, 186, 0.15);">
+                    <img src="prize-hoodie-official.jpg" style="width: 100%; height: 100%; object-fit: cover; object-position: center;">
+                    
+                    <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 70%; background: linear-gradient(to top, #000 20%, transparent); padding: 25px; display: flex; flex-direction: column; justify-content: flex-end;">
+                        
+                        <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+                            <div>
+                                <div style="background: var(--primary); color: #000; padding: 6px 14px; border-radius: 100px; font-size: 11px; font-weight: 900; display: inline-flex; align-items: center; gap: 6px; margin-bottom: 15px; box-shadow: 0 0 20px rgba(16, 251, 186, 0.4);">
+                                    <i class="fa-solid fa-crown"></i> PREMIO MENSUAL
+                                </div>
+                                <h2 style="font-size: 32px; font-weight: 900; line-height: 1; margin-bottom: 8px; font-family: var(--font-display); text-shadow: 0 2px 10px rgba(0,0,0,0.8);">
+                                    LA SUDADERA<br>
+                                    <span style="color: var(--primary); text-shadow: 0 0 20px rgba(16, 251, 186, 0.3);">OFICIAL ALMA</span>
+                                </h2>
+                                <p style="font-size: 13px; color: #ccc; margin-bottom: 0px; font-weight: 500;">Diseño exclusivo "Alma Hondón".</p>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+            <!-- SECCIÓN 3: CONSEJO (Diseño Minimal) -->
+            <div style="margin-bottom: 35px;">
+                <div style="background: rgba(16,251,186,0.03); border: 1px solid rgba(16,251,186,0.1); border-radius: 24px; padding: 25px; display: flex; align-items: center; gap: 20px;">
+                    <div style="background: rgba(16,251,186,0.1); width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                        <i class="fa-solid fa-user-doctor" style="color: var(--primary); font-size: 20px;"></i>
+                    </div>
+                    <div>
+                        <h4 style="color: var(--primary); font-size: 10px; font-weight: 800; letter-spacing: 1px; margin-bottom: 5px; text-transform: uppercase;">Dra. Alma Dice:</h4>
+                        <p style="font-size: 13px; font-weight: 600; line-height: 1.4; color: #eee;">"En días de calor, prueba la regla de los 5 segundos: si el asfalto quema tu mano, quemará sus patas."</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECCIÓN 4: FINALES FELICES (Compacto) -->
+            <div style="margin-bottom: 100px;">
+                 <h3 style="font-size: 14px; font-weight: 900; letter-spacing: 0.5px; margin-bottom: 20px;">FINALES FELICES</h3>
+                 <div style="background: var(--bg-surface); border-radius: 24px; border: 1px solid rgba(255,255,255,0.05); padding: 5px;">
+                    <div style="display: flex; align-items: center; gap: 15px; padding: 15px;">
+                        <img src="https://images.unsplash.com/photo-1596495578065-6e0763fa1178?q=80&w=600&auto=format&fit=crop" style="width: 60px; height: 60px; border-radius: 18px; object-fit: cover;">
+                        <div style="flex: 1;">
+                            <h4 style="font-size: 15px; font-weight: 800; margin-bottom: 4px;">Luna & Familia Pérez</h4>
+                            <p style="font-size: 12px; color: var(--text-muted);">"Es un ángel en casa."</p>
+                        </div>
+                        <i class="fa-solid fa-heart" style="color: var(--danger); font-size: 16px; margin-right: 10px;"></i>
+                    </div>
+                    <div style="height: 1px; background: rgba(255,255,255,0.05); margin: 0 20px;"></div>
+                    <div style="display: flex; align-items: center; gap: 15px; padding: 15px;">
+                        <img src="https://images.unsplash.com/photo-1548199973-03cce0bbc87b?q=80&w=600&auto=format&fit=crop" style="width: 60px; height: 60px; border-radius: 18px; object-fit: cover;">
+                        <div style="flex: 1;">
+                            <h4 style="font-size: 15px; font-weight: 800; margin-bottom: 4px;">Thor el Guerrero</h4>
+                            <p style="font-size: 12px; color: var(--text-muted);">"Corre maratones con nosotros."</p>
+                        </div>
+                        <i class="fa-solid fa-heart" style="color: var(--danger); font-size: 16px; margin-right: 10px;"></i>
+                    </div>
+                 </div>
+            </div>
+            
         </div>
-    `).join('');
+    `;
+
+    container.innerHTML = dashboardHTML;
 }
 
 // Expose final version of renderHomeNews
@@ -1757,3 +2007,20 @@ if ('serviceWorker' in navigator) {
 setTimeout(() => {
     if (window.renderHomeNews) window.renderHomeNews();
 }, 1000);
+
+// Auto-start App when DOM is ready
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+    init();
+}
+
+/* --- GLOBAL EXPORTS --- */
+// Moved here to ensure all consts/functions are defined
+window.Router = Router;
+window.LocationManager = LocationManager;
+window.createAnimalCard = createAnimalCard;
+window.showDetail = showDetail;
+window.switchSocialTab = switchSocialTab;
+window.renderHomeNews = renderHomeNews;
+window.renderCatalog = () => filterCatalog('all');
+window.renderCommunity = () => switchSocialTab('heroes');

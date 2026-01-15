@@ -441,21 +441,21 @@ const LocationManager = {
         console.log("📍 Iniciando Capa 2: Watch Alta Precisión...");
         this.startWatch();
 
-        // 3. Fallback a IP automático si no hay éxito en 6s
+        // 3. Fallback a IP automático si no hay éxito en 10s
         setTimeout(() => {
             if (!this.pos && this.status === 'locating') {
                 console.warn("⏰ Tiempo de espera GPS excedido. Intentando IP...");
                 this.updateStatusOverlay('Señal débil, triangulando por red...');
                 this.locateByIP("Timeout GPS");
             }
-        }, 6000);
+        }, 10000);
 
-        // 4. Fallback Manual Definitivo a los 12s
+        // 4. Fallback Manual Definitivo a los 18s
         setTimeout(() => {
             if (!this.pos && this.status !== 'success') {
                 this.handleError({ code: 3, message: "No se pudo obtener ubicación automática." });
             }
-        }, 12000);
+        }, 18000);
     },
 
     async locateByIP(reason) {
@@ -979,44 +979,35 @@ function handleLocateMe() {
     btn.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i>';
     btn.disabled = true;
 
+    // Ensure map is rendered before locating
+    if (rescueMap) rescueMap.invalidateSize();
+
     LocationManager.forceLocate()
         .then(() => {
-            const originalIcon = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-            btn.disabled = true;
+            btn.innerHTML = originalIcon;
+            btn.disabled = false;
+            showToast("Ubicación actualizada", "success");
+        })
+        .catch(err => {
+            console.error("Fallo manual GPS:", err);
+            let msg = "No se pudo obtener señal.";
+            let detail = "Mueve el pin o usa el buscador.";
 
-            // Ensure map is rendered before locating
-            if (rescueMap) rescueMap.invalidateSize();
+            if (err.code === 1) {
+                msg = "Permiso denegado.";
+                detail = "Actívalo en el icono del candado de tu navegador.";
+            } else if (err.code === 2) {
+                msg = "Señal no disponible.";
+                detail = "Revisa el WiFi o usa el buscador.";
+            } else if (err.code === 3) {
+                msg = "Tiempo agotado.";
+                detail = "Prueba de nuevo cerca de una ventana.";
+            }
 
-            // Simulate GPS
-            LocationManager.forceLocate()
-                .then(() => {
-                    btn.innerHTML = originalIcon;
-                    btn.disabled = false;
-                    showToast("Ubicación actualizada", "success");
-                })
-                .catch(err => {
-                    console.error("Fallo manual GPS:", err);
-                    let msg = "No se pudo obtener señal.";
-                    let detail = "Mueve el pin o usa el buscador.";
-
-                    if (err.code === 1) {
-                        msg = "Permiso denegado.";
-                        detail = "Actívalo en el icono del candado de tu navegador.";
-                    } else if (err.code === 2) {
-                        msg = "Señal no disponible.";
-                        detail = "Revisa el WiFi de tu Mac o usa el buscador.";
-                    } else if (err.code === 3) {
-                        msg = "Tiempo agotado.";
-                        detail = "Prueba de nuevo cerca de una ventana.";
-                    }
-
-                    showToast(`${msg} ${detail}`, "error");
-                    btn.innerHTML = originalIcon;
-                    btn.disabled = false;
-                });
+            showToast(`${msg} ${detail}`, "error");
+            btn.innerHTML = originalIcon;
+            btn.disabled = false;
         });
-
 }
 
 /* --- PHOTO EVIDENCE LOGIC --- */
@@ -1161,7 +1152,6 @@ async function init() {
         typing.className = 'chat-bubble other';
         typing.id = 'ai-typing-indicator';
         typing.innerHTML = '<i class="fa-solid fa-circle-notch fa-spin"></i> Dra. Alma (v7.2) está escribiendo...';
-        chatContainer.appendChild(typing);
         chatContainer.appendChild(typing);
         chatContainer.scrollTop = chatContainer.scrollHeight;
 

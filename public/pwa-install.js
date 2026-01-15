@@ -65,11 +65,19 @@
     function checkIfInstalled() {
         const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
         const isIOSStandalone = window.navigator.standalone === true;
-        const fromPWA = window.location.search.includes('source=pwa');
 
-        window.PWAInstall.isInstalled = isStandalone || isIOSStandalone || fromPWA;
+        // Solo considerar instalada si realmente está en modo standalone AHORA
+        // No basarse en URL params porque pueden persistir incorrectamente
+        const isActuallyInstalled = isStandalone || isIOSStandalone;
+
+        window.PWAInstall.isInstalled = isActuallyInstalled;
+
+        // Si estamos en browser normal, limpiar cualquier flag de instalación anterior
+        if (!isActuallyInstalled) {
+            sessionStorage.removeItem('pwa_install_skipped');
+        }
+
         log('¿Está instalada? ' + window.PWAInstall.isInstalled);
-
         return window.PWAInstall.isInstalled;
     }
 

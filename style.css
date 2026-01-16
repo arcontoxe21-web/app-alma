@@ -184,6 +184,7 @@ body {
   width: 100%;
   cursor: pointer;
   box-shadow: var(--shadow-neon);
+  margin-bottom: 40px;
 }
 
 /* --- TABS --- */
@@ -646,8 +647,10 @@ textarea:focus {
   display: flex;
   gap: 12px;
   margin-bottom: 30px;
-  flex-wrap: wrap; /* WRAP para ver todos */
-  justify-content: center; /* Centrado */
+  flex-wrap: wrap;
+  /* WRAP para ver todos */
+  justify-content: center;
+  /* Centrado */
 }
 
 .filter-scroll-container::-webkit-scrollbar {
